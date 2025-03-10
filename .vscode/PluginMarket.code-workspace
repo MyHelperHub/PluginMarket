@@ -1,0 +1,13 @@
+{
+  "folders": [
+    {
+      "path": "../format_converter"
+    },
+    {
+      "path": "../picture_editor"
+    },
+  ],
+  "settings": {
+    "workbench.activityBar.orientation": "vertical"
+  }
+}
