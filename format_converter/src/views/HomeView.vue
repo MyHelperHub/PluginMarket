@@ -1,16 +1,10 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import Button from 'primevue/button';
 import FileUpload from 'primevue/fileupload';
 import Card from 'primevue/card';
-import Dropdown from 'primevue/dropdown';
 import Toast from 'primevue/toast';
 import ProgressBar from 'primevue/progressbar';
-import Divider from 'primevue/divider';
-import TabView from 'primevue/tabview';
-import TabPanel from 'primevue/tabpanel';
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
 import { useToast } from 'primevue/usetoast';
 import { useConverterStore } from '../stores/converterStore';
 
@@ -21,16 +15,23 @@ const searchQuery = ref('');
 
 // 创建可视化的格式转换表
 const conversionMatrix = reactive([
-    { sourceFormat: 'PDF', targetFormats: ['PNG', 'JPG', 'DOCX', 'TXT'], icon: 'pi pi-file-pdf' },
-    { sourceFormat: 'PNG', targetFormats: ['JPG', 'WEBP', 'PDF', 'BMP'], icon: 'pi pi-image' },
-    { sourceFormat: 'JPG/JPEG', targetFormats: ['PNG', 'WEBP', 'PDF', 'BMP'], icon: 'pi pi-image' },
-    { sourceFormat: 'DOCX', targetFormats: ['PDF', 'TXT', 'HTML'], icon: 'pi pi-file' },
-    { sourceFormat: 'XLSX', targetFormats: ['CSV', 'JSON', 'PDF'], icon: 'pi pi-table' },
+    { sourceFormat: 'PNG', targetFormats: ['JPG', 'WEBP', 'BMP', 'SVG'], icon: 'pi pi-image' },
+    { sourceFormat: 'JPG/JPEG', targetFormats: ['PNG', 'WEBP', 'BMP', 'SVG'], icon: 'pi pi-image' },
+    { sourceFormat: 'DOCX', targetFormats: ['TXT', 'HTML'], icon: 'pi pi-file' },
+    { sourceFormat: 'XLSX', targetFormats: ['CSV', 'JSON'], icon: 'pi pi-table' },
     { sourceFormat: 'CSV', targetFormats: ['XLSX', 'JSON'], icon: 'pi pi-table' },
-    { sourceFormat: 'JSON', targetFormats: ['CSV', 'XLSX'], icon: 'pi pi-code' },
-    { sourceFormat: 'TXT', targetFormats: ['DOCX', 'PDF'], icon: 'pi pi-file-edit' },
-    { sourceFormat: 'WEBP', targetFormats: ['PNG', 'JPG', 'PDF'], icon: 'pi pi-image' },
-    { sourceFormat: 'BMP', targetFormats: ['PNG', 'JPG', 'WEBP'], icon: 'pi pi-image' },
+    { sourceFormat: 'JSON', targetFormats: ['CSV', 'XLSX', 'XML'], icon: 'pi pi-code' },
+    { sourceFormat: 'XML', targetFormats: ['JSON'], icon: 'pi pi-code' },
+    { sourceFormat: 'Markdown', targetFormats: ['HTML'], icon: 'pi pi-file-edit' },
+    { sourceFormat: 'TXT', targetFormats: ['DOCX'], icon: 'pi pi-file-edit' },
+    { sourceFormat: 'WEBP', targetFormats: ['PNG', 'JPG', 'SVG'], icon: 'pi pi-image' },
+    { sourceFormat: 'BMP', targetFormats: ['PNG', 'JPG', 'WEBP', 'SVG'], icon: 'pi pi-image' },
+    { sourceFormat: 'MP3', targetFormats: ['WAV', 'OGG', 'AAC'], icon: 'pi pi-volume-up' },
+    { sourceFormat: 'WAV', targetFormats: ['MP3', 'OGG', 'AAC'], icon: 'pi pi-volume-up' },
+    { sourceFormat: 'OGG', targetFormats: ['MP3', 'WAV', 'AAC'], icon: 'pi pi-volume-up' },
+    { sourceFormat: 'AAC', targetFormats: ['MP3', 'WAV', 'OGG'], icon: 'pi pi-volume-up' },
+    { sourceFormat: 'MP4', targetFormats: ['WEBM'], icon: 'pi pi-video' },
+    { sourceFormat: 'WEBM', targetFormats: ['MP4'], icon: 'pi pi-video' },
 ]);
 
 // 过滤搜索结果
@@ -44,50 +45,99 @@ const filteredConversions = computed(() => {
 });
 
 // 根据文件扩展名获取用户友好的格式名称
-const getFormatDisplayName = (ext) => {
-    const formatMap = {
-        'pdf': 'PDF 文档',
+const getFormatDisplayName = (ext: string): string => {
+    const formatMap: Record<string, string> = {
         'png': 'PNG 图像',
         'jpg': 'JPG 图像',
         'jpeg': 'JPEG 图像',
         'webp': 'WebP 图像',
         'bmp': 'BMP 图像',
+        'svg': 'SVG 矢量图',
         'docx': 'Word 文档',
         'xlsx': 'Excel 电子表格',
         'csv': 'CSV 数据',
         'json': 'JSON 数据',
+        'xml': 'XML 数据',
         'txt': '文本文件',
-        'html': 'HTML 页面'
+        'html': 'HTML 页面',
+        'md': 'Markdown 文档',
+        'markdown': 'Markdown 文档',
+        'mp3': 'MP3 音频',
+        'wav': 'WAV 音频',
+        'ogg': 'OGG 音频',
+        'aac': 'AAC 音频',
+        'mp4': 'MP4 视频',
+        'webm': 'WebM 视频',
+        'avi': 'AVI 视频',
+        'mov': 'MOV 视频',
+        'mkv': 'MKV 视频'
     };
     return formatMap[ext] || ext.toUpperCase();
 };
 
 // 根据文件扩展名获取对应的图标
-const getFormatIcon = (ext) => {
-    const iconMap = {
-        'pdf': 'pi pi-file-pdf',
+const getFormatIcon = (ext: string): string => {
+    const iconMap: Record<string, string> = {
         'png': 'pi pi-image',
         'jpg': 'pi pi-image',
         'jpeg': 'pi pi-image',
         'webp': 'pi pi-image',
         'bmp': 'pi pi-image',
+        'svg': 'pi pi-image',
         'docx': 'pi pi-file',
         'xlsx': 'pi pi-table',
         'csv': 'pi pi-table',
         'json': 'pi pi-code',
+        'xml': 'pi pi-code',
         'txt': 'pi pi-file-edit',
-        'html': 'pi pi-globe'
+        'html': 'pi pi-globe',
+        'md': 'pi pi-file-edit',
+        'markdown': 'pi pi-file-edit',
+        'mp3': 'pi pi-volume-up',
+        'wav': 'pi pi-volume-up',
+        'ogg': 'pi pi-volume-up',
+        'aac': 'pi pi-volume-up',
+        'mp4': 'pi pi-video',
+        'webm': 'pi pi-video',
+        'avi': 'pi pi-video',
+        'mov': 'pi pi-video',
+        'mkv': 'pi pi-video'
     };
     return iconMap[ext] || 'pi pi-file';
 };
 
+// 检查文件是否为音频或视频
+const isMediaFile = (file: File): boolean => {
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const mediaFormats = ['mp3', 'wav', 'ogg', 'aac', 'mp4', 'webm', 'avi', 'mov', 'mkv'];
+    return mediaFormats.includes(ext);
+};
+
+// 当前选择的文件预览
+const mediaPreviewUrl = ref<string | null>(null);
+const showMediaPreview = ref(false);
+
 // 当文件上传后，根据文件类型更新可用的目标格式
-const onFileUpload = (event) => {
+const onFileUpload = (event: { files: File[] }) => {
     // 在customUpload模式下，获取选择的文件
     const file = event.files[0];
     store.uploadedFile = file;
-    const fileExt = file.name.split('.').pop().toLowerCase();
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
     store.selectedFormat = null;
+
+    // 清理之前的媒体预览
+    if (mediaPreviewUrl.value) {
+        URL.revokeObjectURL(mediaPreviewUrl.value);
+        mediaPreviewUrl.value = null;
+    }
+
+    // 如果是媒体文件，创建预览URL
+    if (isMediaFile(file)) {
+        mediaPreviewUrl.value = URL.createObjectURL(file);
+        showMediaPreview.value = true;
+    } else {
+        showMediaPreview.value = false;
+    }
 
     const hasFormats = store.updateTargetFormats(fileExt);
     if (!hasFormats) {
@@ -110,8 +160,10 @@ const convertFile = async () => {
 
     if (result.success) {
         toast.add({ severity: 'success', summary: '转换成功', detail: result.message, life: 3000 });
-        // 转换成功后，重置到第一步，准备新的转换
+        // 转换成功后，重置状态并回到第一步
         setTimeout(() => {
+            // 完全重置状态
+            store.resetState();
             activeIndex.value = 0;
         }, 2000);
     } else {
@@ -140,11 +192,17 @@ const onFormatSelected = () => {
 const getTargetFormatsText = computed(() => {
     if (!store.uploadedFile) return '请先上传文件';
 
-    const fileExt = store.uploadedFile.name.split('.').pop().toLowerCase();
     if (store.targetFormats.length === 0) return '不支持此格式转换';
 
     const formatNames = store.targetFormats.map(format => format).join('、');
     return `可以转换为：${formatNames}`;
+});
+
+// 组件卸载时清理资源
+onUnmounted(() => {
+    if (mediaPreviewUrl.value) {
+        URL.revokeObjectURL(mediaPreviewUrl.value);
+    }
 });
 </script>
 
@@ -163,7 +221,8 @@ const getTargetFormatsText = computed(() => {
                     <div class="card-title">
                         <span>文件格式转换</span>
                         <span v-if="store.uploadedFile" class="file-badge">
-                            <i :class="getFormatIcon(store.uploadedFile.name.split('.').pop().toLowerCase())"></i>
+                            <i
+                                :class="getFormatIcon(store.uploadedFile.name.split('.').pop()?.toLowerCase() || '')"></i>
                             {{ store.uploadedFile.name }}
                         </span>
                     </div>
@@ -195,10 +254,16 @@ const getTargetFormatsText = computed(() => {
                         <div v-if="activeIndex === 0" class="upload-step">
                             <div class="upload-container">
                                 <FileUpload mode="basic" :customUpload="true" @select="onFileUpload" chooseLabel="选择文件"
-                                    :maxFileSize="50000000" :disabled="store.isConverting" class="upload-button" />
+                                    :maxFileSize="100000000" :disabled="store.isConverting" class="upload-button"
+                                    accept=".jpg,.jpeg,.png,.webp,.bmp,.svg,.docx,.doc,.txt,.html,.htm,.md,.markdown,.xlsx,.xls,.csv,.json,.xml,.mp3,.wav,.ogg,.aac,.mp4,.webm,.avi,.mov,.mkv"
+                                    chooseIcon="pi pi-upload" />
                                 <div class="upload-tip">
                                     <i class="pi pi-info-circle"></i>
-                                    <span>支持多种格式，最大50MB</span>
+                                    <span>支持多种格式文件转换</span>
+                                </div>
+                                <div class="security-tip">
+                                    <i class="pi pi-shield"></i>
+                                    <span>完全由客户端完成转换，无需上传至服务器，简洁安全放心</span>
                                 </div>
                             </div>
 
@@ -235,15 +300,29 @@ const getTargetFormatsText = computed(() => {
                         <!-- 步骤2：选择目标格式 -->
                         <div v-if="activeIndex === 1" class="format-step">
                             <div class="current-file">
-                                <div class="file-info">
+                                <div class="file-info" v-if="store.uploadedFile">
                                     <i
-                                        :class="getFormatIcon(store.uploadedFile.name.split('.').pop().toLowerCase())"></i>
+                                        :class="getFormatIcon(store.uploadedFile.name.split('.').pop()?.toLowerCase() || '')"></i>
                                     <span class="file-name">{{ store.uploadedFile.name }}</span>
                                     <span class="file-size">({{ (store.uploadedFile.size / 1024).toFixed(1) }}
                                         KB)</span>
                                 </div>
                                 <div class="target-format-text">
                                     {{ getTargetFormatsText }}
+                                </div>
+                            </div>
+
+                            <!-- 媒体文件预览 -->
+                            <div v-if="showMediaPreview && mediaPreviewUrl" class="media-preview">
+                                <h3>文件预览</h3>
+                                <div class="preview-container">
+                                    <!-- 音频预览 -->
+                                    <audio v-if="store.uploadedFile?.name.match(/\.(mp3|wav|ogg|aac)$/i)" controls
+                                        :src="mediaPreviewUrl" class="audio-preview"></audio>
+
+                                    <!-- 视频预览 -->
+                                    <video v-else-if="store.uploadedFile?.name.match(/\.(mp4|webm|avi|mov|mkv)$/i)"
+                                        controls :src="mediaPreviewUrl" class="video-preview"></video>
                                 </div>
                             </div>
 
@@ -274,12 +353,13 @@ const getTargetFormatsText = computed(() => {
                             <div class="conversion-summary">
                                 <div class="summary-item from">
                                     <div class="summary-label">源文件格式</div>
-                                    <div class="summary-value">
+                                    <div class="summary-value" v-if="store.uploadedFile">
                                         <i
-                                            :class="getFormatIcon(store.uploadedFile.name.split('.').pop().toLowerCase())"></i>
+                                            :class="getFormatIcon(store.uploadedFile.name.split('.').pop()?.toLowerCase() || '')"></i>
                                         <span>{{
-                                            getFormatDisplayName(store.uploadedFile.name.split('.').pop().toLowerCase())
-                                            }}</span>
+                                            getFormatDisplayName(store.uploadedFile.name.split('.').pop()?.toLowerCase()
+                                                || '')
+                                        }}</span>
                                     </div>
                                 </div>
 
@@ -290,7 +370,7 @@ const getTargetFormatsText = computed(() => {
                                 <div class="summary-item to">
                                     <div class="summary-label">目标格式</div>
                                     <div class="summary-value">
-                                        <i :class="getFormatIcon(store.selectedFormat?.toLowerCase())"></i>
+                                        <i :class="getFormatIcon(store.selectedFormat?.toLowerCase() || '')"></i>
                                         <span>{{ store.selectedFormat }}</span>
                                     </div>
                                 </div>
@@ -308,6 +388,21 @@ const getTargetFormatsText = computed(() => {
                             <div v-if="store.isConverting" class="progress-container">
                                 <ProgressBar :value="store.progress" class="custom-progress-bar" />
                                 <p>正在转换中，请稍候...</p>
+                            </div>
+
+                            <div class="convert-tips" v-if="isMediaFile(store.uploadedFile!)">
+                                <div class="info-box">
+                                    <i class="pi pi-info-circle"></i>
+                                    <div class="info-content">
+                                        <p><strong>关于媒体文件转换的说明</strong></p>
+                                        <p>浏览器环境下的媒体文件转换有一定限制：</p>
+                                        <ul>
+                                            <li>音频格式：支持基本的格式转换，但某些编解码可能受限</li>
+                                            <li>视频格式：浏览器环境下只能进行基本的格式切换</li>
+                                            <li>大文件处理：媒体文件通常较大，处理可能需要较长时间</li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="navigation-buttons">
@@ -330,6 +425,24 @@ const getTargetFormatsText = computed(() => {
 
 <style lang="less" scoped>
 @import '../styles/variables.less';
+
+// 隐藏FileUpload中的"No file chosen"文本
+:deep(.p-fileupload-basic) {
+    .p-button {
+        width: 100%;
+        max-width: 300px;
+        font-weight: 600;
+
+        // 确保图标和文字对齐居中
+        .p-button-icon {
+            margin-right: 0.5rem;
+        }
+    }
+
+    .p-fileupload-filename {
+        display: none !important;
+    }
+}
 
 .home-view {
     font-family: @font-family;
@@ -492,17 +605,33 @@ const getTargetFormatsText = computed(() => {
                 background-color: @bg-light;
                 border-radius: @border-radius;
                 border: 2px dashed @border-color;
+                transition: all @transition-duration ease;
+
+                &:hover {
+                    border-color: @primary-color;
+                    background-color: fade(@primary-color, 5%);
+                }
 
                 .upload-button {
                     margin-bottom: @spacing-md;
                 }
 
-                .upload-tip {
+                .upload-tip,
+                .security-tip {
                     display: flex;
                     align-items: center;
                     gap: @spacing-sm;
                     color: @text-muted;
                     font-size: @font-size-sm;
+                    margin-top: @spacing-sm;
+                }
+                
+                .security-tip {
+                    color: @success-color;
+                    
+                    i {
+                        font-size: 1rem;
+                    }
                 }
             }
 
@@ -787,6 +916,49 @@ const getTargetFormatsText = computed(() => {
                 }
             }
 
+            .convert-tips {
+                margin: 1.5rem 0;
+
+                .info-box {
+                    display: flex;
+                    background-color: rgba(33, 150, 243, 0.1);
+                    border-left: 4px solid #2196F3;
+                    padding: 1rem;
+                    border-radius: @border-radius;
+                    gap: 1rem;
+                    align-items: flex-start;
+
+                    i {
+                        color: #2196F3;
+                        font-size: @font-size-lg;
+                        margin-top: 0.2rem;
+                    }
+
+                    .info-content {
+                        flex: 1;
+
+                        p {
+                            margin: 0 0 0.5rem 0;
+                            color: @text-color;
+
+                            &:last-child {
+                                margin-bottom: 0;
+                            }
+                        }
+
+                        ul {
+                            margin: 0.5rem 0 0 1rem;
+                            padding: 0;
+
+                            li {
+                                margin-bottom: 0.3rem;
+                                color: @text-muted;
+                            }
+                        }
+                    }
+                }
+            }
+
             .navigation-buttons {
                 display: flex;
                 justify-content: space-between;
@@ -821,6 +993,80 @@ const getTargetFormatsText = computed(() => {
 
         .format-options {
             justify-content: center;
+        }
+    }
+}
+
+// 媒体预览样式
+.media-preview {
+    margin: 1.5rem 0;
+
+    h3 {
+        margin-bottom: 1rem;
+        font-size: @font-size-md;
+        color: @text-color;
+    }
+
+    .preview-container {
+        display: flex;
+        justify-content: center;
+        background-color: rgba(0, 0, 0, 0.05);
+        border-radius: @border-radius;
+        padding: 1rem;
+    }
+
+    .audio-preview {
+        width: 100%;
+        max-width: 500px;
+    }
+
+    .video-preview {
+        max-width: 100%;
+        max-height: 300px;
+        border-radius: @border-radius;
+    }
+}
+
+// 转换提示信息
+.convert-tips {
+    margin: 1.5rem 0;
+
+    .info-box {
+        display: flex;
+        background-color: rgba(33, 150, 243, 0.1);
+        border-left: 4px solid #2196F3;
+        padding: 1rem;
+        border-radius: @border-radius;
+        gap: 1rem;
+        align-items: flex-start;
+
+        i {
+            color: #2196F3;
+            font-size: @font-size-lg;
+            margin-top: 0.2rem;
+        }
+
+        .info-content {
+            flex: 1;
+
+            p {
+                margin: 0 0 0.5rem 0;
+                color: @text-color;
+
+                &:last-child {
+                    margin-bottom: 0;
+                }
+            }
+
+            ul {
+                margin: 0.5rem 0 0 1rem;
+                padding: 0;
+
+                li {
+                    margin-bottom: 0.3rem;
+                    color: @text-muted;
+                }
+            }
         }
     }
 }

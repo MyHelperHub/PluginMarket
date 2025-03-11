@@ -11,28 +11,33 @@
     "ts-check": "tsc --noEmit"
   },
   "dependencies": {
-    "vue": "^3.5.13",
-    "vue-router": "^4.2.5",
-    "primevue": "^3.50.0",
-    "primeicons": "^6.0.1",
-    "pdf-lib": "^1.17.1",
-    "jspdf": "^2.5.1",
-    "html2canvas": "^1.4.1",
+    "@primeuix/themes": "^1.0.0",
+    "docx": "^9.2.0",
+    "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
-    "convert-units": "^2.3.4",
-    "image-conversion": "^2.1.1",
-    "xlsx": "^0.18.5",
-    "docx": "^8.2.4",
-    "pinia": "^2.1.7"
+    "fontfaceobserver": "^2.3.0",
+    "html-to-image": "^1.11.13",
+    "html2canvas": "^1.4.1",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.6.0",
+    "marked": "^15.0.7",
+    "papaparse": "^5.5.2",
+    "pinia": "^3.0.1",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.3.1",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
   },
   "devDependencies": {
+    "@types/file-saver": "^2.0.7",
+    "@types/fontfaceobserver": "^2.1.3",
+    "@types/papaparse": "^5.3.15",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/tsconfig": "^0.7.0",
+    "less": "^4.2.2",
+    "less-loader": "^12.2.0",
     "typescript": "~5.7.2",
     "vite": "^6.2.0",
-    "vue-tsc": "^2.2.4",
-    "@types/file-saver": "^2.0.5",
-    "less": "^4.2.0",
-    "less-loader": "^12.2.0"
+    "vue-tsc": "^2.2.8"
   }
 }
