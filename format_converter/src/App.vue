@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ref } from 'vue';
 import Menubar from 'primevue/menubar';
 import { useRouter } from 'vue-router';
 

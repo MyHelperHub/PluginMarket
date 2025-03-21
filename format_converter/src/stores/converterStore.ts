@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, reactive } from "vue";
 import { FormatConverter } from "../utils/converter";
+import { OfficeToPdfConverter } from "../utils/officeToPdf";
 
 /**
  * 文件类型
@@ -17,6 +18,7 @@ export enum FileType {
   CSV = "csv",
   AUDIO = "audio",
   VIDEO = "video",
+  OFFICE = "office",
 }
 
 /**
@@ -242,6 +244,32 @@ export const useConverterStore = defineStore("converter", () => {
       label: "视频 → WEBM",
       accept: ".mp4,.avi,.mov,.mkv",
     },
+
+    // Office文档转换
+    {
+      sourceType: FileType.OFFICE,
+      targetType: FileType.PDF,
+      label: "Word → PDF",
+      accept: ".docx,.doc",
+    },
+    {
+      sourceType: FileType.OFFICE,
+      targetType: "txt",
+      label: "Word → TXT",
+      accept: ".docx,.doc",
+    },
+    {
+      sourceType: FileType.OFFICE,
+      targetType: FileType.HTML,
+      label: "Word → HTML",
+      accept: ".docx,.doc",
+    },
+    {
+      sourceType: FileType.EXCEL,
+      targetType: FileType.PDF,
+      label: "Excel → PDF",
+      accept: ".xlsx,.xls",
+    },
   ] as ConversionType[]);
 
   // 格式分组（用于UI显示）
@@ -255,47 +283,67 @@ export const useConverterStore = defineStore("converter", () => {
 
   // 获取文件类型
   const getFileType = (extension: string): FileType | null => {
-    const extensionMap: Record<string, FileType> = {
-      // 图像类型
-      jpg: FileType.IMAGE,
-      jpeg: FileType.IMAGE,
-      png: FileType.IMAGE,
-      webp: FileType.IMAGE,
-      bmp: FileType.IMAGE,
-      svg: FileType.IMAGE,
+    switch (extension) {
+      case "jpg":
+      case "jpeg":
+      case "png":
+      case "gif":
+      case "webp":
+      case "bmp":
+      case "svg":
+      case "tiff":
+      case "ico":
+        return FileType.IMAGE;
 
-      // 文档类型
-      pdf: FileType.PDF,
-      txt: FileType.TEXT,
-      docx: FileType.TEXT,
-      doc: FileType.TEXT,
-      html: FileType.HTML,
-      htm: FileType.HTML,
-      md: FileType.MARKDOWN,
-      markdown: FileType.MARKDOWN,
+      case "pdf":
+        return FileType.PDF;
 
-      // 数据类型
-      xlsx: FileType.EXCEL,
-      xls: FileType.EXCEL,
-      csv: FileType.CSV,
-      json: FileType.JSON,
-      xml: FileType.XML,
+      case "xlsx":
+      case "xls":
+        return FileType.EXCEL;
 
-      // 音频类型
-      mp3: FileType.AUDIO,
-      wav: FileType.AUDIO,
-      ogg: FileType.AUDIO,
-      aac: FileType.AUDIO,
+      case "docx":
+      case "doc":
+        return FileType.OFFICE;
 
-      // 视频类型
-      mp4: FileType.VIDEO,
-      webm: FileType.VIDEO,
-      avi: FileType.VIDEO,
-      mov: FileType.VIDEO,
-      mkv: FileType.VIDEO,
-    };
+      case "txt":
+        return FileType.TEXT;
 
-    return extensionMap[extension] || null;
+      case "html":
+      case "htm":
+        return FileType.HTML;
+
+      case "md":
+      case "markdown":
+        return FileType.MARKDOWN;
+
+      case "xml":
+        return FileType.XML;
+
+      case "json":
+        return FileType.JSON;
+
+      case "csv":
+        return FileType.CSV;
+
+      case "mp3":
+      case "wav":
+      case "ogg":
+      case "aac":
+      case "flac":
+      case "m4a":
+        return FileType.AUDIO;
+
+      case "mp4":
+      case "webm":
+      case "avi":
+      case "mov":
+      case "mkv":
+        return FileType.VIDEO;
+
+      default:
+        return null;
+    }
   };
 
   /**
@@ -377,19 +425,60 @@ export const useConverterStore = defineStore("converter", () => {
    */
   async function executeConversion(): Promise<Blob> {
     if (!uploadedFile.value || !selectedFormat.value) {
-      throw new Error("缺少必要参数");
+      throw new Error("没有选择文件或转换格式");
     }
 
-    const file = uploadedFile.value;
-    const sourceExt = file.name.split(".").pop()?.toLowerCase() || "";
-    const targetExt = selectedFormat.value.toLowerCase();
+    const sourceExt =
+      uploadedFile.value.name.split(".").pop()?.toLowerCase() || "";
+    const targetFormat = selectedFormat.value.toLowerCase();
 
+    // 根据源格式和目标格式执行相应的转换
     try {
-      // 使用通用转换入口方法
-      return await FormatConverter.convertFile(file, sourceExt, targetExt);
+      // Office文档转PDF - 使用专用的Office转PDF转换器
+      if (
+        uploadedFile.value &&
+        targetFormat === "pdf" &&
+        ["docx", "doc"].includes(sourceExt)
+      ) {
+        return await OfficeToPdfConverter.wordToPdf(uploadedFile.value);
+      }
+
+      // Office文档转TXT
+      if (
+        uploadedFile.value &&
+        targetFormat === "txt" &&
+        ["docx", "doc"].includes(sourceExt)
+      ) {
+        return await FormatConverter.docxToTxt(uploadedFile.value);
+      }
+
+      // Office文档转HTML
+      if (
+        uploadedFile.value &&
+        targetFormat === "html" &&
+        ["docx", "doc"].includes(sourceExt)
+      ) {
+        return await FormatConverter.docxToHtml(uploadedFile.value);
+      }
+
+      // Excel转PDF - 使用专用的Office转PDF转换器
+      if (
+        uploadedFile.value &&
+        targetFormat === "pdf" &&
+        ["xlsx", "xls"].includes(sourceExt)
+      ) {
+        return await OfficeToPdfConverter.excelToPdf(uploadedFile.value);
+      }
+
+      // 其他格式转换，使用已有的转换方法
+      return await FormatConverter.convertFile(
+        uploadedFile.value,
+        sourceExt,
+        targetFormat
+      );
     } catch (error) {
-      console.error("文件转换失败:", error);
-      throw new Error(`文件转换失败: ${(error as Error).message}`);
+      console.error("转换过程中出错:", error);
+      throw error;
     }
   }
 

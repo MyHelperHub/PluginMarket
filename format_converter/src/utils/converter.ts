@@ -55,7 +55,6 @@ export class FormatConverter {
 
           try {
             // 根据目标格式导出
-            let blob;
             let contentType;
 
             switch (targetFormat) {
@@ -257,143 +256,87 @@ export class FormatConverter {
     sourceFormat: string,
     targetFormat: string
   ): Promise<Blob> {
-    // 标准化格式名称
-    sourceFormat = sourceFormat.toLowerCase();
-    targetFormat = targetFormat.toLowerCase();
-
-    // 如果源格式和目标格式相同，直接返回源文件
-    if (sourceFormat === targetFormat) {
-      return file;
-    }
-
     try {
-      // 根据源格式和目标格式选择转换方法
-      const conversionKey = `${sourceFormat}_${targetFormat}`;
+      console.log(
+        `开始转换文件: ${file.name}, 从 ${sourceFormat} 到 ${targetFormat}`
+      );
 
-      switch (conversionKey) {
-        // 图像转换
-        case "jpg_png":
-        case "jpeg_png":
-        case "png_jpg":
-        case "png_jpeg":
-        case "webp_png":
-        case "webp_jpg":
-        case "webp_jpeg":
-        case "bmp_png":
-        case "bmp_jpg":
-        case "bmp_jpeg":
-        case "gif_png":
-        case "gif_jpg":
-        case "gif_jpeg":
-        case "png_webp":
-        case "jpg_webp":
-        case "jpeg_webp":
-        case "png_bmp":
-        case "jpg_bmp":
-        case "jpeg_bmp":
-        case "png_gif":
-        case "jpg_gif":
-        case "jpeg_gif":
-          return await FormatConverter.convertImage(file, targetFormat);
-
-        // 图像转SVG
-        case "png_svg":
-        case "jpg_svg":
-        case "jpeg_svg":
-        case "webp_svg":
-        case "bmp_svg":
-        case "gif_svg":
-          return await FormatConverter.imageToSvg(file);
-
-        // Excel转CSV
-        case "xlsx_csv":
-        case "xls_csv":
-        case "excel_csv":
-          return await FormatConverter.excelToCsv(file);
-
-        // Excel转JSON
-        case "xlsx_json":
-        case "xls_json":
-        case "excel_json":
-          return await FormatConverter.excelToJson(file);
-
-        // CSV转Excel
-        case "csv_xlsx":
-        case "csv_xls":
-        case "csv_excel":
-          return await FormatConverter.csvToExcel(file);
-
-        // JSON转XML
-        case "json_xml":
-          return await FormatConverter.jsonToXml(file);
-
-        // XML转JSON
-        case "xml_json":
-          return await FormatConverter.xmlToJson(file);
-
-        // Markdown转HTML
-        case "md_html":
-        case "markdown_html":
-          return await FormatConverter.markdownToHtml(file);
-
-        // 文本转Word
-        case "txt_docx":
-        case "txt_word":
-          return await FormatConverter.textToWord(file);
-
-        // Word转文本
-        case "docx_txt":
-        case "word_txt":
-          return await FormatConverter.docxToTxt(file);
-
-        // Word转HTML
-        case "docx_html":
-        case "word_html":
-          return await FormatConverter.docxToHtml(file);
-
-        // JSON转CSV
-        case "json_csv":
-          return await FormatConverter.jsonToCsv(file);
-
-        // JSON转Excel
-        case "json_xlsx":
-        case "json_xls":
-        case "json_excel":
-          return await FormatConverter.jsonToExcel(file);
-
-        // 音频转换
-        case "mp3_wav":
-        case "mp3_ogg":
-        case "mp3_aac":
-        case "wav_mp3":
-        case "wav_ogg":
-        case "wav_aac":
-        case "ogg_mp3":
-        case "ogg_wav":
-        case "ogg_aac":
-        case "aac_mp3":
-        case "aac_wav":
-        case "aac_ogg":
-          return await FormatConverter.convertAudio(file, targetFormat);
-
-        // 视频转换
-        case "mp4_webm":
-        case "mp4_avi":
-        case "webm_mp4":
-        case "webm_avi":
-        case "avi_mp4":
-        case "avi_webm":
-        case "mov_mp4":
-        case "mov_webm":
-        case "mkv_mp4":
-        case "mkv_webm":
-          return await FormatConverter.convertVideo(file, targetFormat);
-
-        default:
-          throw new Error(`不支持的转换: ${sourceFormat} 到 ${targetFormat}`);
+      // 检查格式是否支持
+      if (!this.canConvert(sourceFormat, targetFormat)) {
+        throw new Error(`不支持从 ${sourceFormat} 转换到 ${targetFormat}`);
       }
+
+      // 调用相应的转换方法
+      // 图像格式转换
+      if (
+        [
+          "jpg",
+          "jpeg",
+          "png",
+          "gif",
+          "bmp",
+          "webp",
+          "svg",
+          "ico",
+          "tiff",
+        ].includes(sourceFormat)
+      ) {
+        return await this.convertImage(file, targetFormat);
+      }
+
+      // 音频格式转换
+      if (["mp3", "wav", "ogg", "flac", "aac", "m4a"].includes(sourceFormat)) {
+        return await this.convertAudio(file, targetFormat);
+      }
+
+      // 视频格式转换
+      if (["mp4", "webm", "avi", "mov", "mkv"].includes(sourceFormat)) {
+        return await this.convertVideo(file, targetFormat);
+      }
+
+      // 特定格式转换
+      switch (`${sourceFormat}_to_${targetFormat}`) {
+        case "xlsx_to_csv":
+        case "xls_to_csv":
+          return await this.excelToCsv(file);
+
+        case "xlsx_to_json":
+        case "xls_to_json":
+          return await this.excelToJson(file);
+
+        case "csv_to_xlsx":
+          return await this.csvToExcel(file);
+
+        case "json_to_xml":
+          return await this.jsonToXml(file);
+
+        case "xml_to_json":
+          return await this.xmlToJson(file);
+
+        case "md_to_html":
+        case "markdown_to_html":
+          return await this.markdownToHtml(file);
+
+        case "docx_to_txt":
+        case "doc_to_txt":
+          return await this.docxToTxt(file);
+
+        case "docx_to_html":
+        case "doc_to_html":
+          return await this.docxToHtml(file);
+
+        case "json_to_csv":
+          return await this.jsonToCsv(file);
+
+        case "json_to_xlsx":
+        case "json_to_xls":
+          return await this.jsonToExcel(file);
+      }
+
+      // 如果没有匹配的转换，抛出错误
+      throw new Error(`不支持的转换: ${sourceFormat} 到 ${targetFormat}`);
     } catch (error) {
-      console.error("转换失败:", error);
+      console.error("文件转换失败:", error);
       throw error;
     }
   }
@@ -414,7 +357,7 @@ export class FormatConverter {
       svg: [],
 
       // 文档格式
-      docx: ["txt", "html"],
+      docx: ["txt", "html", "pdf"],
       txt: ["docx"],
       md: ["html"],
       markdown: ["html"],
@@ -422,7 +365,7 @@ export class FormatConverter {
       htm: [],
 
       // 数据格式
-      xlsx: ["csv", "json"],
+      xlsx: ["csv", "json", "pdf"],
       xls: ["csv", "json"],
       csv: ["xlsx", "xls"],
       json: ["xml", "csv", "xlsx", "xls"],
@@ -440,6 +383,7 @@ export class FormatConverter {
       avi: ["mp4", "webm"],
       mov: ["mp4", "webm"],
       mkv: ["mp4", "webm"],
+      pdf: ["docx", "doc", "xlsx", "xls"],
     };
   }
 
@@ -471,11 +415,6 @@ export class FormatConverter {
       return false;
     }
 
-    // 特别排除DOCX到PDF的转换
-    if (sourceFormat === "docx" && targetFormat === "pdf") {
-      return false;
-    }
-
     // 图像格式互转
     const imageFormats = [
       "jpg",
@@ -501,6 +440,8 @@ export class FormatConverter {
       "txt_docx",
       "docx_txt",
       "docx_html",
+      "docx_pdf",
+      "doc_pdf",
       "html_pdf",
       "md_html",
       "markdown_html",
@@ -550,6 +491,10 @@ export class FormatConverter {
       "webm_mp4",
       "mov_mp4",
       "mov_webm",
+      "mp4_avi",
+      "webm_avi",
+      "avi_mp4",
+      "avi_webm",
     ];
 
     // 检查组合是否支持
@@ -646,79 +591,95 @@ export class FormatConverter {
 
   /**
    * JSON转XML
-   * @param file JSON文件
+   * @param file 源JSON文件
    * @returns Promise<Blob> 转换后的XML Blob
    */
   public static async jsonToXml(file: File): Promise<Blob> {
     return new Promise((resolve, reject) => {
       try {
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = () => {
           try {
-            const text = e.target?.result as string;
-            const json = JSON.parse(text);
+            if (reader.result) {
+              // 解析JSON
+              const jsonContent = JSON.parse(reader.result as string);
 
-            // 简单的JSON到XML转换函数
-            const jsonToXml = (obj: any, rootName: string = "root"): string => {
-              let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<${rootName}>`;
+              // 将JSON转换为XML字符串
+              const jsonToXml = (
+                _obj: any,
+                rootName: string = "root"
+              ): string => {
+                let xmlString = `<?xml version="1.0" encoding="UTF-8"?>\n<${rootName}>`;
 
-              const convertToXml = (obj: any, parentName: string): string => {
-                let xmlStr = "";
+                const convertToXml = (
+                  obj: any,
+                  _parentName: string
+                ): string => {
+                  let xml = "";
 
-                if (typeof obj === "object") {
                   if (Array.isArray(obj)) {
                     // 处理数组
-                    obj.forEach((item, index) => {
-                      const elementName = `item`;
-                      xmlStr += `<${elementName}>`;
-                      xmlStr += convertToXml(item, elementName);
-                      xmlStr += `</${elementName}>`;
+                    obj.forEach((item, _index) => {
+                      xml += `<item>${
+                        typeof item === "object"
+                          ? convertToXml(item, "item")
+                          : item
+                      }</item>`;
                     });
-                  } else if (obj !== null) {
+                  } else if (typeof obj === "object" && obj !== null) {
                     // 处理对象
-                    for (const key in obj) {
-                      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                        const value = obj[key];
-                        if (typeof value === "object" && value !== null) {
-                          xmlStr += `<${key}>`;
-                          xmlStr += convertToXml(value, key);
-                          xmlStr += `</${key}>`;
+                    for (const prop in obj) {
+                      if (Object.prototype.hasOwnProperty.call(obj, prop)) {
+                        xml += `<${prop}>`;
+                        if (
+                          typeof obj[prop] === "object" &&
+                          obj[prop] !== null
+                        ) {
+                          xml += convertToXml(obj[prop], prop);
                         } else {
-                          xmlStr += `<${key}>${
-                            value === null ? "" : value
-                          }</${key}>`;
+                          xml += obj[prop];
                         }
+                        xml += `</${prop}>`;
                       }
                     }
+                  } else {
+                    // 直接返回值
+                    xml = String(obj);
                   }
-                } else {
-                  // 处理基本类型
-                  xmlStr += obj;
-                }
 
-                return xmlStr;
+                  return xml;
+                };
+
+                xmlString += convertToXml(jsonContent, rootName);
+                xmlString += `</${rootName}>`;
+
+                return xmlString;
               };
 
-              xml += convertToXml(json, rootName);
-              xml += `</${rootName}>`;
+              const xmlContent = jsonToXml(jsonContent);
 
-              return xml;
-            };
+              // 创建XML Blob
+              const blob = new Blob([xmlContent], {
+                type: "application/xml",
+              });
 
-            const xmlString = jsonToXml(json);
-            const blob = new Blob([xmlString], { type: "application/xml" });
-            resolve(blob);
+              resolve(blob);
+            } else {
+              reject(new Error("读取文件失败"));
+            }
           } catch (error) {
-            reject(new Error("JSON解析失败"));
+            console.error("JSON转XML失败:", error);
+            reject(error);
           }
         };
 
         reader.onerror = () => {
-          reject(new Error("文件读取失败"));
+          reject(new Error("读取文件失败"));
         };
 
         reader.readAsText(file);
       } catch (error) {
+        console.error("JSON转XML失败:", error);
         reject(error);
       }
     });
@@ -1067,14 +1028,27 @@ export class FormatConverter {
           }
         );
 
-        // 添加丰富的CSS样式，模拟Word文档的外观
+        // 创建具有样式的HTML文档
         const htmlContent = `
           <!DOCTYPE html>
-          <html>
+          <html lang="zh-CN">
           <head>
-            <meta charset="utf-8">
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>转换的文档</title>
             <style>
+              @font-face {
+                font-family: 'SimSun';
+                src: local('SimSun');
+                font-weight: normal;
+                font-style: normal;
+              }
+              @font-face {
+                font-family: 'Microsoft YaHei';
+                src: local('Microsoft YaHei');
+                font-weight: normal;
+                font-style: normal;
+              }
               body {
                 font-family: "SimSun", "Microsoft YaHei", Arial, sans-serif;
                 line-height: 1.6;
@@ -1201,7 +1175,7 @@ export class FormatConverter {
             </style>
           </head>
           <body>
-            ${result.value}
+            <div class="container">${result.value}</div>
           </body>
           </html>
         `;
@@ -1368,69 +1342,86 @@ export class FormatConverter {
   ): Promise<Blob> {
     return new Promise((resolve, reject) => {
       try {
+        // 检查浏览器是否支持AudioContext
+        if (!window.AudioContext) {
+          reject(new Error("浏览器不支持音频处理"));
+          return;
+        }
+
+        const audioContext = new AudioContext();
+
+        // 读取音频文件
         const reader = new FileReader();
-
-        reader.onload = async (e) => {
+        reader.onload = async () => {
           try {
-            // 这是一个简化版的模拟实现
-            // 实际应用中需要使用更复杂的音频处理库
+            if (reader.result instanceof ArrayBuffer) {
+              // 音频格式转换
+              // 注意: 在浏览器环境中，音频转换有限制
+              // 我们这里简化实现，实际上需要完整的音频处理库
 
-            // 创建一个包含基本信息的文本说明
-            const infoText = `
-音频转换示例 (${file.name} => ${targetFormat})
-------------
-原始大小: ${(file.size / 1024).toFixed(2)} KB
-格式: ${file.type}
-目标格式: ${targetFormat}
+              // 解码音频数据
+              const audioData = await audioContext.decodeAudioData(
+                reader.result
+              );
 
-注意：这是一个模拟转换，真实应用需要使用专业的音频处理库。
-`;
+              // 创建媒体源
+              const source = audioContext.createBufferSource();
+              source.buffer = audioData;
 
-            // 返回一个模拟的Blob
-            let mimeType = "";
-            switch (targetFormat.toLowerCase()) {
-              case "mp3":
-                mimeType = "audio/mpeg";
-                break;
-              case "wav":
-                mimeType = "audio/wav";
-                break;
-              case "ogg":
-                mimeType = "audio/ogg";
-                break;
-              case "aac":
-                mimeType = "audio/aac";
-                break;
-              default:
-                reject(new Error(`不支持的目标格式: ${targetFormat}`));
-                return;
+              // 创建目标格式的mime type
+              let mimeType = "audio/mpeg"; // 默认值
+              switch (targetFormat.toLowerCase()) {
+                case "mp3":
+                  mimeType = "audio/mpeg";
+                  break;
+                case "wav":
+                  mimeType = "audio/wav";
+                  break;
+                case "ogg":
+                  mimeType = "audio/ogg";
+                  break;
+                case "aac":
+                  mimeType = "audio/aac";
+                  break;
+                default:
+                  reject(new Error(`不支持的音频格式: ${targetFormat}`));
+                  return;
+              }
+
+              // 在实际应用中，这里应该进行真实的音频转换
+              // 但在浏览器环境中这是有限制的，需要专门的编解码器
+              // 这里我们直接返回原始文件，并修改mime type作为演示
+              resolve(
+                new Blob([reader.result], {
+                  type: mimeType,
+                })
+              );
+            } else {
+              reject(new Error("读取文件失败"));
             }
-
-            // 实际应用中这里应该进行真正的音频转换
-            // 这里我们仅返回原始文件
-            resolve(file);
           } catch (error) {
-            console.error("音频处理失败:", error);
-            reject(new Error("音频处理失败"));
+            console.error("音频转换失败:", error);
+            reject(error);
           }
         };
 
         reader.onerror = () => {
-          reject(new Error("文件读取失败"));
+          reject(new Error("读取文件失败"));
         };
 
         reader.readAsArrayBuffer(file);
       } catch (error) {
+        console.error("音频转换失败:", error);
         reject(error);
       }
     });
   }
 
   /**
-   * 视频格式转换
+   * 转换视频
    * @param file 源视频文件
    * @param targetFormat 目标格式
-   * @returns Promise<Blob> 转换后的Blob
+   * @returns Promise<Blob> 转换后的视频Blob
    */
   public static async convertVideo(
     file: File,
@@ -1438,38 +1429,68 @@ export class FormatConverter {
   ): Promise<Blob> {
     return new Promise((resolve, reject) => {
       try {
-        // 在浏览器环境中，视频转码通常需要服务器支持
-        // 这里提供一个简单的模拟实现
+        console.log(`开始视频转换: 从 ${file.type} 到 ${targetFormat}...`);
 
-        // 检查目标格式
-        let mimeType;
-        switch (targetFormat.toLowerCase()) {
-          case "mp4":
-            mimeType = "video/mp4";
-            break;
-          case "webm":
-            mimeType = "video/webm";
-            break;
-          case "avi":
-            mimeType = "video/avi";
-            break;
-          default:
-            reject(new Error(`不支持的视频格式: ${targetFormat}`));
-            return;
+        // 检查格式是否支持
+        const supportedFormats = ["mp4", "webm", "avi"];
+        targetFormat = targetFormat.toLowerCase();
+
+        if (!supportedFormats.includes(targetFormat)) {
+          reject(
+            new Error(
+              `不支持的视频格式: ${targetFormat}。目前仅支持: ${supportedFormats.join(
+                ", "
+              )}`
+            )
+          );
+          return;
         }
 
-        // 实际的视频转换要比这复杂得多
-        // 通常需要使用专门的库如FFmpeg的WebAssembly版本
-        // 或服务器端处理
+        // 在浏览器环境中，完整的视频转换需要使用专门的视频处理库
+        // 例如FFmpeg WebAssembly版本，在实际应用中应当引入这些库
+        console.log("注意: 当前实现为演示版本，返回原始视频");
 
-        // 这里我们简单地返回原始文件
-        // 实际应用中应该进行真正的转换
-        setTimeout(() => {
-          resolve(file);
-        }, 1000); // 模拟处理时间
+        // 模拟转换过程
+        const totalTime = 2000; // 2秒模拟时间
+        const steps = 4;
+        let currentStep = 0;
+
+        const processStep = () => {
+          currentStep++;
+          console.log(
+            `视频转换进度: ${Math.round((currentStep / steps) * 100)}%`
+          );
+
+          if (currentStep >= steps) {
+            // 为了演示，我们返回原始文件，但添加类型信息
+            // 在真实实现中，这里应该返回转换后的文件
+            const convertedBlob = new Blob([file], {
+              type:
+                targetFormat === "mp4"
+                  ? "video/mp4"
+                  : targetFormat === "webm"
+                  ? "video/webm"
+                  : "video/x-msvideo",
+            });
+
+            console.log("视频转换完成（演示模式）");
+            resolve(convertedBlob);
+            return;
+          }
+
+          setTimeout(processStep, totalTime / steps);
+        };
+
+        processStep();
       } catch (error) {
         console.error("视频转换失败:", error);
-        reject(error);
+        reject(
+          new Error(
+            `视频转换失败: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          )
+        );
       }
     });
   }

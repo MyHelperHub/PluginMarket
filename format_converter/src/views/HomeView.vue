@@ -17,8 +17,8 @@ const searchQuery = ref('');
 const conversionMatrix = reactive([
     { sourceFormat: 'PNG', targetFormats: ['JPG', 'WEBP', 'BMP', 'SVG'], icon: 'pi pi-image' },
     { sourceFormat: 'JPG/JPEG', targetFormats: ['PNG', 'WEBP', 'BMP', 'SVG'], icon: 'pi pi-image' },
-    { sourceFormat: 'DOCX', targetFormats: ['TXT', 'HTML'], icon: 'pi pi-file' },
-    { sourceFormat: 'XLSX', targetFormats: ['CSV', 'JSON'], icon: 'pi pi-table' },
+    { sourceFormat: 'DOCX', targetFormats: ['TXT', 'HTML', 'PDF'], icon: 'pi pi-file' },
+    { sourceFormat: 'XLSX', targetFormats: ['CSV', 'JSON', 'PDF'], icon: 'pi pi-table' },
     { sourceFormat: 'CSV', targetFormats: ['XLSX', 'JSON'], icon: 'pi pi-table' },
     { sourceFormat: 'JSON', targetFormats: ['CSV', 'XLSX', 'XML'], icon: 'pi pi-code' },
     { sourceFormat: 'XML', targetFormats: ['JSON'], icon: 'pi pi-code' },
@@ -54,7 +54,9 @@ const getFormatDisplayName = (ext: string): string => {
         'bmp': 'BMP 图像',
         'svg': 'SVG 矢量图',
         'docx': 'Word 文档',
+        'doc': 'Word 文档',
         'xlsx': 'Excel 电子表格',
+        'xls': 'Excel 电子表格',
         'csv': 'CSV 数据',
         'json': 'JSON 数据',
         'xml': 'XML 数据',
@@ -70,7 +72,8 @@ const getFormatDisplayName = (ext: string): string => {
         'webm': 'WebM 视频',
         'avi': 'AVI 视频',
         'mov': 'MOV 视频',
-        'mkv': 'MKV 视频'
+        'mkv': 'MKV 视频',
+        'pdf': 'PDF 文档'
     };
     return formatMap[ext] || ext.toUpperCase();
 };
