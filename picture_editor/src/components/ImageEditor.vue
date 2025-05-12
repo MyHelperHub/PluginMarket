@@ -25,6 +25,11 @@ import { message } from "ant-design-vue";
 import LayerManager from "./LayerManager.vue";
 import { fabric } from "fabric";
 import { calculateImageFileSize } from "../utils/fileUtils";
+import Toolbar from "./ui/Toolbar.vue";
+import FilterPanel from "./filters/FilterPanel.vue";
+import TransformPanel from "./transform/TransformPanel.vue";
+import ObjectPropertyPanel from "./object/ObjectPropertyPanel.vue";
+import ExportModal from "./export/ExportModal.vue";
 
 // 初始化store和引用
 const editorStore = useEditorStore();
@@ -96,14 +101,21 @@ const showObjectPanel = ref(true); // 修改为通用对象属性面板
 // 添加滤镜目标状态 - 对象或画布
 const filterTarget = ref("object"); // 'object' 或 'canvas'
 
-// 定义对象属性
-const objectProperties = ref({
-  // 共享属性
+// 定义对象属性，并添加类型
+const objectProperties = ref<{
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+  fontSize: number;
+  fontFamily: string;
+  fontWeight: string;
+  fontStyle: string;
+  textAlign: string;
+  charSpacing: number;
+}>({
   fill: "transparent",
   stroke: "#000000",
   strokeWidth: 2,
-
-  // 文本特有属性
   fontSize: 20,
   fontFamily: "Arial",
   fontWeight: "normal",
@@ -113,10 +125,10 @@ const objectProperties = ref({
 });
 
 // 添加填充类型计算属性
-const fillType = computed({
-  get: () =>
+const fillType = computed<"transparent" | "custom">({
+  get: (): "transparent" | "custom" =>
     objectProperties.value.fill === "transparent" ? "transparent" : "custom",
-  set: (val: string) => {
+  set: (val: "transparent" | "custom") => {
     objectProperties.value.fill =
       val === "transparent" ? "transparent" : "#ffffff";
   },
@@ -383,9 +395,42 @@ onMounted(async () => {
         showLayerManager.value = hasObjects;
 
         // 设置初始画布背景
-        editorStore.canvas.setBackgroundColor("#ffffff", () => {
-          editorStore.canvas?.renderAll();
-        });
+        const canvasWidth = editorStore.canvas.width || 800;
+        const canvasHeight = editorStore.canvas.height || 600;
+
+        // 创建一个临时画布来生成白色背景图像
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = canvasWidth;
+        tempCanvas.height = canvasHeight;
+        const ctx = tempCanvas.getContext("2d");
+
+        if (ctx) {
+          // 填充白色背景
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+          // 从临时画布创建fabric.Image对象
+          fabric.Image.fromURL(tempCanvas.toDataURL(), (img) => {
+            // 设置为背景图像
+            editorStore.canvas?.setBackgroundImage(
+              img,
+              editorStore.canvas.renderAll.bind(editorStore.canvas),
+              {
+                originX: "left",
+                originY: "top",
+                width: canvasWidth,
+                height: canvasHeight,
+              }
+            );
+
+            editorStore.canvas?.renderAll();
+          });
+        } else {
+          // 如果无法创建背景图像，至少设置背景颜色
+          editorStore.canvas.setBackgroundColor("#ffffff", () => {
+            editorStore.canvas?.renderAll();
+          });
+        }
       }
 
       // 设置画布交互
@@ -560,7 +605,7 @@ const applyFiltersToSelection = () => {
     if (filters.value.brightness !== 0) {
       filterArray.push(
         new fabric.Image.filters.Brightness({
-          brightness: filters.value.brightness,
+          brightness: filters.value.brightness / 100,
         })
       );
     }
@@ -569,7 +614,7 @@ const applyFiltersToSelection = () => {
     if (filters.value.contrast !== 0) {
       filterArray.push(
         new fabric.Image.filters.Contrast({
-          contrast: filters.value.contrast,
+          contrast: filters.value.contrast / 100,
         })
       );
     }
@@ -578,7 +623,7 @@ const applyFiltersToSelection = () => {
     if (filters.value.saturation !== 0) {
       filterArray.push(
         new fabric.Image.filters.Saturation({
-          saturation: filters.value.saturation,
+          saturation: filters.value.saturation / 100,
         })
       );
     }
@@ -594,45 +639,89 @@ const applyFiltersToSelection = () => {
 const applyFiltersToCanvas = () => {
   if (!editorStore.canvas) return;
 
-  // 遍历画布上的所有对象
-  editorStore.canvas.getObjects().forEach((obj) => {
-    if (obj.type === "image" && "filters" in obj) {
-      const imgObj = obj as fabric.Image;
-      const filterArray: any[] = [];
+  // 获取画布背景图像
+  let bgImage = editorStore.canvas.backgroundImage;
 
-      // 添加亮度滤镜
-      if (canvasFilters.value.brightness !== 0) {
-        filterArray.push(
-          new fabric.Image.filters.Brightness({
-            brightness: canvasFilters.value.brightness,
-          })
+  // 如果没有背景图像，创建一个白色背景
+  if (!bgImage || !(bgImage instanceof fabric.Image)) {
+    // 创建一个与画布大小相同的白色背景图像
+    const canvasWidth = editorStore.canvas.width || 800;
+    const canvasHeight = editorStore.canvas.height || 600;
+
+    // 创建一个临时画布来生成白色背景图像
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = canvasWidth;
+    tempCanvas.height = canvasHeight;
+    const ctx = tempCanvas.getContext("2d");
+
+    if (ctx) {
+      // 填充白色背景
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+      // 从临时画布创建fabric.Image对象
+      fabric.Image.fromURL(tempCanvas.toDataURL(), (img) => {
+        // 设置为背景图像
+        editorStore.canvas?.setBackgroundImage(
+          img,
+          editorStore.canvas.renderAll.bind(editorStore.canvas),
+          {
+            originX: "left",
+            originY: "top",
+            width: canvasWidth,
+            height: canvasHeight,
+          }
         );
-      }
 
-      // 添加对比度滤镜
-      if (canvasFilters.value.contrast !== 0) {
-        filterArray.push(
-          new fabric.Image.filters.Contrast({
-            contrast: canvasFilters.value.contrast,
-          })
-        );
-      }
-
-      // 添加饱和度滤镜
-      if (canvasFilters.value.saturation !== 0) {
-        filterArray.push(
-          new fabric.Image.filters.Saturation({
-            saturation: canvasFilters.value.saturation,
-          })
-        );
-      }
-
-      // 设置滤镜并应用
-      imgObj.filters = filterArray;
-      imgObj.applyFilters();
+        // 获取新设置的背景图像并应用滤镜
+        bgImage = editorStore.canvas?.backgroundImage;
+        if (bgImage && bgImage instanceof fabric.Image) {
+          applyFiltersToBackgroundImage(bgImage);
+        }
+      });
     }
-  });
+  } else {
+    // 如果已有背景图像，直接应用滤镜
+    applyFiltersToBackgroundImage(bgImage);
+  }
+};
 
+// 将应用滤镜的逻辑提取到一个单独的函数
+const applyFiltersToBackgroundImage = (bgImage: fabric.Image) => {
+  if (!editorStore.canvas) return;
+
+  const filterArray: any[] = [];
+
+  // 添加亮度滤镜
+  if (canvasFilters.value.brightness !== 0) {
+    filterArray.push(
+      new fabric.Image.filters.Brightness({
+        brightness: canvasFilters.value.brightness / 100,
+      })
+    );
+  }
+
+  // 添加对比度滤镜
+  if (canvasFilters.value.contrast !== 0) {
+    filterArray.push(
+      new fabric.Image.filters.Contrast({
+        contrast: canvasFilters.value.contrast / 100,
+      })
+    );
+  }
+
+  // 添加饱和度滤镜
+  if (canvasFilters.value.saturation !== 0) {
+    filterArray.push(
+      new fabric.Image.filters.Saturation({
+        saturation: canvasFilters.value.saturation / 100,
+      })
+    );
+  }
+
+  // 设置滤镜并应用
+  bgImage.filters = filterArray;
+  bgImage.applyFilters();
   editorStore.canvas.requestRenderAll();
 };
 
@@ -882,6 +971,77 @@ const handlePercentChange = async (value: number) => {
   }
 };
 
+// 定义一个辅助函数，同步创建具有相同滤镜的画布背景
+const createBackgroundWithFilters = (
+  sourceCanvas: fabric.Canvas,
+  targetCanvas: fabric.Canvas,
+  scaleX: number = 1,
+  scaleY: number = 1
+) => {
+  if (!sourceCanvas || !targetCanvas) return;
+
+  if (
+    sourceCanvas.backgroundImage &&
+    sourceCanvas.backgroundImage instanceof fabric.Image
+  ) {
+    // 获取原始背景图像
+    const bgImage = sourceCanvas.backgroundImage;
+
+    // 创建新的背景图像（克隆原始图像）
+    const newBgImage = new fabric.Image(bgImage.getElement());
+
+    // 复制原始图像的基本属性
+    newBgImage.set({
+      scaleX: (bgImage.scaleX || 1) * scaleX,
+      scaleY: (bgImage.scaleY || 1) * scaleY,
+      originX: bgImage.originX,
+      originY: bgImage.originY,
+      width: bgImage.width,
+      height: bgImage.height,
+    });
+
+    // 复制滤镜
+    if (bgImage.filters && bgImage.filters.length > 0) {
+      newBgImage.filters = bgImage.filters.map((filter) => {
+        // 创建滤镜副本
+        if (filter instanceof fabric.Image.filters.Brightness) {
+          return new fabric.Image.filters.Brightness({
+            brightness: (filter as any).brightness,
+          });
+        } else if (filter instanceof fabric.Image.filters.Contrast) {
+          return new fabric.Image.filters.Contrast({
+            contrast: (filter as any).contrast,
+          });
+        } else if (filter instanceof fabric.Image.filters.Saturation) {
+          return new fabric.Image.filters.Saturation({
+            saturation: (filter as any).saturation,
+          });
+        }
+        return filter;
+      });
+
+      // 应用滤镜
+      newBgImage.applyFilters();
+    }
+
+    // 设置为背景
+    targetCanvas.setBackgroundImage(
+      newBgImage,
+      targetCanvas.renderAll.bind(targetCanvas)
+    );
+    return true;
+  } else if (sourceCanvas.backgroundColor) {
+    // 如果只有背景色，直接复制
+    targetCanvas.setBackgroundColor(
+      sourceCanvas.backgroundColor,
+      targetCanvas.renderAll.bind(targetCanvas)
+    );
+    return true;
+  }
+
+  return false;
+};
+
 /**
  * 更新导出预览图
  */
@@ -918,13 +1078,12 @@ const updateExportPreview = async () => {
       height: previewHeight,
     });
 
-    // 复制主画布的背景色
-    if (editorStore.canvas.backgroundColor) {
-      tempCanvas.setBackgroundColor(
-        editorStore.canvas.backgroundColor,
-        tempCanvas.renderAll.bind(tempCanvas)
-      );
-    }
+    // 计算缩放比例
+    const scaleX = previewWidth / editorStore.canvas.getWidth();
+    const scaleY = previewHeight / editorStore.canvas.getHeight();
+
+    // 复制背景和滤镜
+    createBackgroundWithFilters(editorStore.canvas, tempCanvas, scaleX, scaleY);
 
     // 复制所有对象到临时画布
     const clonedObjects = editorStore.canvas
@@ -932,12 +1091,17 @@ const updateExportPreview = async () => {
       .filter((obj) => !obj.data?.isHelper)
       .map((obj) => fabric.util.object.clone(obj));
 
-    // 计算缩放比例
-    const scaleX = previewWidth / editorStore.canvas.getWidth();
-    const scaleY = previewHeight / editorStore.canvas.getHeight();
-
     // 添加对象到临时画布，并应用缩放
     clonedObjects.forEach((obj) => {
+      // 确保图像对象的滤镜被正确复制
+      if (obj.type === "image" && "filters" in obj) {
+        const imgObj = obj as fabric.Image;
+        if (imgObj.filters && imgObj.filters.length > 0) {
+          // 复制滤镜并应用
+          imgObj.applyFilters();
+        }
+      }
+
       // 如果宽高比不锁定，需要调整所有对象的比例
       if (!exportSettings.value.maintainAspectRatio) {
         obj.set({
@@ -956,6 +1120,12 @@ const updateExportPreview = async () => {
       obj.setCoords();
       tempCanvas.add(obj);
     });
+
+    // 确保渲染完成
+    tempCanvas.renderAll();
+
+    // 等待一小段时间，确保滤镜已应用
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     // 生成预览图
     const dataURL = tempCanvas.toDataURL({
@@ -999,13 +1169,12 @@ const exportImage = async () => {
       height: height,
     });
 
-    // 复制主画布的背景色
-    if (editorStore.canvas.backgroundColor) {
-      tempCanvas.setBackgroundColor(
-        editorStore.canvas.backgroundColor,
-        tempCanvas.renderAll.bind(tempCanvas)
-      );
-    }
+    // 计算缩放比例
+    const scaleX = width / editorStore.canvas.getWidth();
+    const scaleY = height / editorStore.canvas.getHeight();
+
+    // 复制背景和滤镜
+    createBackgroundWithFilters(editorStore.canvas, tempCanvas, scaleX, scaleY);
 
     // 复制所有对象到临时画布
     const clonedObjects = editorStore.canvas
@@ -1013,12 +1182,17 @@ const exportImage = async () => {
       .filter((obj) => !obj.data?.isHelper)
       .map((obj) => fabric.util.object.clone(obj));
 
-    // 计算缩放比例
-    const scaleX = width / editorStore.canvas.getWidth();
-    const scaleY = height / editorStore.canvas.getHeight();
-
     // 添加对象到临时画布，并应用缩放
     clonedObjects.forEach((obj) => {
+      // 确保图像对象的滤镜被正确复制
+      if (obj.type === "image" && "filters" in obj) {
+        const imgObj = obj as fabric.Image;
+        if (imgObj.filters && imgObj.filters.length > 0) {
+          // 复制滤镜并应用
+          imgObj.applyFilters();
+        }
+      }
+
       // 如果宽高比不锁定，需要调整所有对象的比例
       if (!exportSettings.value.maintainAspectRatio) {
         obj.set({
@@ -1037,6 +1211,12 @@ const exportImage = async () => {
       obj.setCoords();
       tempCanvas.add(obj);
     });
+
+    // 确保渲染完成
+    tempCanvas.renderAll();
+
+    // 等待一小段时间，确保滤镜已应用
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     // 重新计算一次准确的文件大小
     const result = await calculateImageFileSize(
@@ -1085,9 +1265,20 @@ type FilterKey = "brightness" | "contrast" | "saturation";
 
 // 添加获取当前滤镜值的方法
 const getCurrentFilterValue = (type: FilterKey) => {
-  return filterTarget.value === "object"
-    ? filters.value[type]
-    : canvasFilters.value[type];
+  if (filterTarget.value === "object") {
+    // 如果是图层模式且有选中对象则返回图层滤镜值
+    if (
+      editorStore.selectedObject &&
+      editorStore.selectedObject.type === "image"
+    ) {
+      return filters.value[type];
+    }
+    // 否则返回0
+    return 0;
+  } else {
+    // 画布模式返回画布滤镜值
+    return canvasFilters.value[type];
+  }
 };
 
 // 监听滤镜变化
@@ -1250,7 +1441,7 @@ const addNewShape = (type: string) => {
 
 // 修复处理滑块变化的方法，添加明确的类型
 const handleBrightnessChange = (value: number) => {
-  if (filterTarget.value === "selection" && editorStore.selectedObject) {
+  if (filterTarget.value === "object" && editorStore.selectedObject) {
     filters.value.brightness = value;
     applyFiltersToSelection();
   } else {
@@ -1260,7 +1451,7 @@ const handleBrightnessChange = (value: number) => {
 };
 
 const handleContrastChange = (value: number) => {
-  if (filterTarget.value === "selection" && editorStore.selectedObject) {
+  if (filterTarget.value === "object" && editorStore.selectedObject) {
     filters.value.contrast = value;
     applyFiltersToSelection();
   } else {
@@ -1270,7 +1461,7 @@ const handleContrastChange = (value: number) => {
 };
 
 const handleSaturationChange = (value: number) => {
-  if (filterTarget.value === "selection" && editorStore.selectedObject) {
+  if (filterTarget.value === "object" && editorStore.selectedObject) {
     filters.value.saturation = value;
     applyFiltersToSelection();
   } else {
@@ -1364,6 +1555,42 @@ watch(
           textAlign: (textObj.textAlign as string) || "left",
           charSpacing: textObj.charSpacing || 0,
         };
+      } else if (newObj.type === "image") {
+        // 如果选中的是图像对象，重置滤镜值为当前图像的滤镜设置
+        const imgObj = newObj as fabric.Image;
+
+        // 重置滤镜值
+        filters.value = {
+          brightness: 0,
+          contrast: 0,
+          saturation: 0,
+        };
+
+        if (imgObj.filters && imgObj.filters.length > 0) {
+          // 检查并获取现有滤镜的值
+          imgObj.filters.forEach((filter) => {
+            // 使用类型断言避免TypeScript错误
+            const anyFilter = filter as any;
+
+            if (
+              filter instanceof fabric.Image.filters.Brightness &&
+              anyFilter.brightness !== undefined
+            ) {
+              // 从滤镜值转换为滑块值 (0-1 -> -100至100)
+              filters.value.brightness = anyFilter.brightness * 100;
+            } else if (
+              filter instanceof fabric.Image.filters.Contrast &&
+              anyFilter.contrast !== undefined
+            ) {
+              filters.value.contrast = anyFilter.contrast * 100;
+            } else if (
+              filter instanceof fabric.Image.filters.Saturation &&
+              anyFilter.saturation !== undefined
+            ) {
+              filters.value.saturation = anyFilter.saturation * 100;
+            }
+          });
+        }
       }
     }
   }
@@ -1373,140 +1600,21 @@ watch(
 <template>
   <div class="editor-container">
     <!-- 工具栏 -->
-    <div class="toolbar">
-      <a-button-group>
-        <a-tooltip title="撤销">
-          <a-button @click="editorStore.undo">
-            <template #icon><UndoOutlined /></template>
-          </a-button>
-        </a-tooltip>
-        <a-tooltip title="重做">
-          <a-button @click="editorStore.redo">
-            <template #icon><RedoOutlined /></template>
-          </a-button>
-        </a-tooltip>
-      </a-button-group>
-
-      <a-divider type="vertical" />
-
-      <a-tooltip title="打开图片">
-        <a-button @click="uploadImage">
-          <template #icon><PictureOutlined /></template>
-        </a-button>
-      </a-tooltip>
-
-      <a-divider type="vertical" />
-
-      <a-button-group>
-        <a-tooltip
-          :title="editorStore.selectedObject ? '缩小选中图层' : '缩小画布'"
-        >
-          <a-button @click="handleObjectZoom(-1)">
-            <template #icon><ZoomOutOutlined /></template>
-          </a-button>
-        </a-tooltip>
-        <a-tooltip :title="`缩放: ${Math.round(zoomLevel * 100)}%`">
-          <a-button>{{ Math.round(zoomLevel * 100) }}%</a-button>
-        </a-tooltip>
-        <a-tooltip
-          :title="editorStore.selectedObject ? '放大选中图层' : '放大画布'"
-        >
-          <a-button @click="handleObjectZoom(1)">
-            <template #icon><ZoomInOutlined /></template>
-          </a-button>
-        </a-tooltip>
-      </a-button-group>
-
-      <a-divider type="vertical" />
-
-      <a-button-group>
-        <a-tooltip title="裁剪">
-          <a-button @click="editorStore.setTool('crop')">
-            <template #icon><ScissorOutlined /></template>
-          </a-button>
-        </a-tooltip>
-        <a-tooltip title="向左旋转">
-          <a-button @click="rotateImage(-90)">
-            <template #icon><RotateLeftOutlined /></template>
-          </a-button>
-        </a-tooltip>
-        <a-tooltip title="向右旋转">
-          <a-button @click="rotateImage(90)">
-            <template #icon><RotateRightOutlined /></template>
-          </a-button>
-        </a-tooltip>
-      </a-button-group>
-
-      <a-divider type="vertical" />
-
-      <!-- 面板控制按钮 -->
-      <a-button-group>
-        <a-tooltip title="滤镜面板">
-          <a-button
-            :type="showFilterPanel ? 'primary' : 'default'"
-            @click="showFilterPanel = !showFilterPanel"
-          >
-            <template #icon><FilterOutlined /></template>
-          </a-button>
-        </a-tooltip>
-        <a-tooltip title="变换面板">
-          <a-button
-            :type="showTransformPanel ? 'primary' : 'default'"
-            @click="showTransformPanel = !showTransformPanel"
-          >
-            <template #icon><SettingOutlined /></template>
-          </a-button>
-        </a-tooltip>
-        <a-tooltip title="形状属性">
-          <a-button
-            :type="showObjectPanel ? 'primary' : 'default'"
-            @click="showObjectPanel = !showObjectPanel"
-          >
-            <template #icon><BorderOutlined /></template>
-          </a-button>
-        </a-tooltip>
-      </a-button-group>
-
-      <a-divider type="vertical" />
-
-      <!-- 图形和文本工具 -->
-      <a-button-group>
-        <a-tooltip title="添加矩形">
-          <a-button @click="addNewShape('rect')">
-            <template #icon><BorderOutlined /></template>
-          </a-button>
-        </a-tooltip>
-        <a-tooltip title="添加圆形">
-          <a-button @click="addNewShape('circle')">
-            <template #icon><HighlightOutlined /></template>
-          </a-button>
-        </a-tooltip>
-        <a-tooltip title="添加文本">
-          <a-button @click="addNewShape('text')">
-            <template #icon><FontSizeOutlined /></template>
-          </a-button>
-        </a-tooltip>
-      </a-button-group>
-
-      <a-divider type="vertical" />
-
-      <a-tooltip title="图层管理">
-        <a-button
-          :type="showLayerManager ? 'primary' : 'default'"
-          @click="showLayerManager = !showLayerManager"
-        >
-          <template #icon><OrderedListOutlined /></template>
-        </a-button>
-      </a-tooltip>
-
-      <a-divider type="vertical" />
-
-      <a-tooltip title="导出">
-        <a-button type="primary" @click="openExportModal">
-          <template #icon><SaveOutlined /></template>
-        </a-button>
-      </a-tooltip>
-    </div>
+    <Toolbar
+      v-model:filterPanel="showFilterPanel"
+      v-model:transformPanel="showTransformPanel"
+      v-model:objectPanel="showObjectPanel"
+      v-model:layerPanel="showLayerManager"
+      :zoomLevel="zoomLevel"
+      @undo="editorStore.undo"
+      @redo="editorStore.redo"
+      @upload-image="uploadImage"
+      @zoom-object="handleObjectZoom"
+      @set-tool="editorStore.setTool"
+      @rotate-image="rotateImage"
+      @add-shape="addNewShape"
+      @open-export-modal="openExportModal"
+    />
 
     <!-- 主编辑区和侧边栏 -->
     <div
@@ -1533,281 +1641,31 @@ watch(
       >
         <a-collapse v-model:activeKey="activeCollapseKeys">
           <a-collapse-panel key="1" header="滤镜" v-if="showFilterPanel">
-            <div class="filter-panel-header">
-              <a-radio-group
-                v-model:value="filterTarget"
-                button-style="solid"
-                size="small"
-              >
-                <a-radio-button value="object">选中对象</a-radio-button>
-                <a-radio-button value="canvas">整个画布</a-radio-button>
-              </a-radio-group>
-            </div>
-            <div class="filter-controls">
-              <div class="filter-item">
-                <span>亮度</span>
-                <a-slider
-                  :value="getCurrentFilterValue('brightness')"
-                  @change="handleBrightnessChange"
-                  :min="-100"
-                  :max="100"
-                  :disabled="
-                    filterTarget === 'object' && !editorStore.selectedObject
-                  "
-                />
-              </div>
-              <div class="filter-item">
-                <span>对比度</span>
-                <a-slider
-                  :value="getCurrentFilterValue('contrast')"
-                  @change="handleContrastChange"
-                  :min="-100"
-                  :max="100"
-                  :disabled="
-                    filterTarget === 'object' && !editorStore.selectedObject
-                  "
-                />
-              </div>
-              <div class="filter-item">
-                <span>饱和度</span>
-                <a-slider
-                  :value="getCurrentFilterValue('saturation')"
-                  @change="handleSaturationChange"
-                  :min="-100"
-                  :max="100"
-                  :disabled="
-                    filterTarget === 'object' && !editorStore.selectedObject
-                  "
-                />
-              </div>
-            </div>
+            <FilterPanel
+              v-model:filterTarget="filterTarget"
+              :filters="filters"
+              :canvasFilters="canvasFilters"
+              :selectedObject="editorStore.selectedObject"
+              @brightness-change="handleBrightnessChange"
+              @contrast-change="handleContrastChange"
+              @saturation-change="handleSaturationChange"
+            />
           </a-collapse-panel>
 
           <a-collapse-panel key="2" header="变换" v-if="showTransformPanel">
-            <div class="transform-controls">
-              <a-button-group style="margin-bottom: 10px">
-                <a-button
-                  @click="rotateImage(-1)"
-                  :disabled="!editorStore.selectedObject"
-                >
-                  <template #icon><RotateLeftOutlined /></template>
-                </a-button>
-                <a-button
-                  @click="rotateImage(1)"
-                  :disabled="!editorStore.selectedObject"
-                >
-                  <template #icon><RotateRightOutlined /></template>
-                </a-button>
-              </a-button-group>
-
-              <a-button-group>
-                <a-button
-                  @click="handleObjectZoom(-1)"
-                  :disabled="!editorStore.selectedObject"
-                >
-                  <template #icon><ZoomOutOutlined /></template>
-                </a-button>
-                <a-button
-                  @click="handleObjectZoom(1)"
-                  :disabled="!editorStore.selectedObject"
-                >
-                  <template #icon><ZoomInOutlined /></template>
-                </a-button>
-              </a-button-group>
-            </div>
+            <TransformPanel
+              :selectedObject="editorStore.selectedObject"
+              @rotate="rotateImage"
+              @zoom="handleObjectZoom"
+            />
           </a-collapse-panel>
 
-          <a-collapse-panel
-            key="3"
-            header="对象属性"
-            v-if="showObjectPanel && editorStore.selectedObject"
-          >
-            <!-- 形状控制区域 -->
-            <div
-              class="object-controls"
-              v-if="
-                editorStore.selectedObject.type === 'rect' ||
-                editorStore.selectedObject.type === 'circle'
-              "
-            >
-              <div class="object-property">
-                <span>填充颜色</span>
-                <div class="color-picker">
-                  <a-radio-group
-                    v-model:value="fillType"
-                    button-style="solid"
-                    size="small"
-                  >
-                    <a-radio-button value="transparent">透明</a-radio-button>
-                    <a-radio-button value="custom">自定义</a-radio-button>
-                  </a-radio-group>
-                  <a-input
-                    v-if="fillType === 'custom'"
-                    v-model:value="objectProperties.fill"
-                    type="color"
-                    style="width: 100%; margin-top: 5px"
-                  />
-                </div>
-              </div>
-
-              <div class="object-property">
-                <span>边框颜色</span>
-                <a-input
-                  v-model:value="objectProperties.stroke"
-                  type="color"
-                  style="width: 100%"
-                />
-              </div>
-
-              <div class="object-property">
-                <span>边框宽度</span>
-                <a-slider
-                  v-model:value="objectProperties.strokeWidth"
-                  :min="0"
-                  :max="20"
-                  :step="1"
-                />
-              </div>
-            </div>
-
-            <!-- 文本控制区域 -->
-            <div
-              class="object-controls"
-              v-else-if="
-                editorStore.selectedObject.type === 'i-text' ||
-                editorStore.selectedObject.type === 'text'
-              "
-            >
-              <div class="object-property">
-                <span>文本颜色</span>
-                <a-input
-                  v-model:value="objectProperties.fill"
-                  type="color"
-                  style="width: 100%"
-                />
-              </div>
-
-              <div class="object-property">
-                <span>字体</span>
-                <a-select v-model:value="objectProperties.fontFamily">
-                  <a-select-option value="Arial">Arial</a-select-option>
-                  <a-select-option value="Times New Roman"
-                    >Times New Roman</a-select-option
-                  >
-                  <a-select-option value="Microsoft YaHei"
-                    >微软雅黑</a-select-option
-                  >
-                  <a-select-option value="SimSun">宋体</a-select-option>
-                  <a-select-option value="SimHei">黑体</a-select-option>
-                </a-select>
-              </div>
-
-              <div class="object-property">
-                <span>字号</span>
-                <a-slider
-                  v-model:value="objectProperties.fontSize"
-                  :min="8"
-                  :max="80"
-                  :step="1"
-                />
-              </div>
-
-              <div class="object-property">
-                <span>样式</span>
-                <div class="text-style-buttons">
-                  <a-button
-                    :type="
-                      objectProperties.fontWeight === 'bold'
-                        ? 'primary'
-                        : 'default'
-                    "
-                    @click="
-                      objectProperties.fontWeight =
-                        objectProperties.fontWeight === 'bold'
-                          ? 'normal'
-                          : 'bold'
-                    "
-                  >
-                    <template #icon
-                      ><span style="font-weight: bold">B</span></template
-                    >
-                  </a-button>
-
-                  <a-button
-                    :type="
-                      objectProperties.fontStyle === 'italic'
-                        ? 'primary'
-                        : 'default'
-                    "
-                    @click="
-                      objectProperties.fontStyle =
-                        objectProperties.fontStyle === 'italic'
-                          ? 'normal'
-                          : 'italic'
-                    "
-                  >
-                    <template #icon
-                      ><span style="font-style: italic">I</span></template
-                    >
-                  </a-button>
-                </div>
-              </div>
-
-              <div class="object-property">
-                <span>对齐方式</span>
-                <div class="text-align-buttons">
-                  <a-button-group>
-                    <a-button
-                      :type="
-                        objectProperties.textAlign === 'left'
-                          ? 'primary'
-                          : 'default'
-                      "
-                      @click="objectProperties.textAlign = 'left'"
-                    >
-                      <template #icon>L</template>
-                    </a-button>
-
-                    <a-button
-                      :type="
-                        objectProperties.textAlign === 'center'
-                          ? 'primary'
-                          : 'default'
-                      "
-                      @click="objectProperties.textAlign = 'center'"
-                    >
-                      <template #icon>C</template>
-                    </a-button>
-
-                    <a-button
-                      :type="
-                        objectProperties.textAlign === 'right'
-                          ? 'primary'
-                          : 'default'
-                      "
-                      @click="objectProperties.textAlign = 'right'"
-                    >
-                      <template #icon>R</template>
-                    </a-button>
-                  </a-button-group>
-                </div>
-              </div>
-
-              <div class="object-property">
-                <span>字间距</span>
-                <a-slider
-                  v-model:value="objectProperties.charSpacing"
-                  :min="-100"
-                  :max="300"
-                  :step="10"
-                />
-              </div>
-            </div>
-
-            <!-- 没有支持的对象时显示提示 -->
-            <div v-else class="empty-panel">
-              请选择矩形、圆形或文本来编辑其属性
-            </div>
+          <a-collapse-panel key="3" header="对象属性" v-if="showObjectPanel">
+            <ObjectPropertyPanel
+              v-model:objectProperties="objectProperties"
+              v-model:fillType="fillType"
+              :selectedObject="editorStore.selectedObject"
+            />
           </a-collapse-panel>
         </a-collapse>
       </div>
@@ -1823,184 +1681,24 @@ watch(
     />
 
     <!-- 导出模态框 -->
-    <a-modal
+    <ExportModal
       v-model:open="isExportModalOpen"
-      title="导出图片"
-      @ok="exportImage"
-      width="800px"
-    >
-      <a-row :gutter="24">
-        <!-- 左侧设置面板 -->
-        <a-col :span="14">
-          <a-form layout="vertical">
-            <a-row :gutter="16">
-              <a-col :span="12">
-                <a-form-item label="格式">
-                  <a-select v-model:value="exportFormat">
-                    <a-select-option value="png">PNG</a-select-option>
-                    <a-select-option value="jpeg">JPEG</a-select-option>
-                    <a-select-option value="webp">WebP</a-select-option>
-                  </a-select>
-                </a-form-item>
-              </a-col>
-
-              <a-col :span="12">
-                <a-form-item label="质量" v-if="exportFormat !== 'png'">
-                  <a-slider
-                    v-model:value="exportQuality"
-                    :min="0.1"
-                    :max="1"
-                    :step="0.1"
-                    :tooltipVisible="true"
-                    :tipFormatter="percentFormatter"
-                  />
-                </a-form-item>
-              </a-col>
-            </a-row>
-
-            <a-divider />
-
-            <a-form-item label="尺寸类型">
-              <a-radio-group
-                v-model:value="exportSettings.sizeType"
-                button-style="solid"
-              >
-                <a-radio-button value="pixel">像素</a-radio-button>
-                <a-radio-button value="percent">百分比</a-radio-button>
-              </a-radio-group>
-            </a-form-item>
-
-            <a-form-item v-if="exportSettings.sizeType === 'pixel'">
-              <a-row :gutter="16">
-                <a-col :span="11">
-                  <a-form-item label="宽度 (像素)">
-                    <a-input-number
-                      v-model:value="exportSettings.width"
-                      :min="1"
-                      :max="10000"
-                      style="width: 100%"
-                      @change="handleWidthChange"
-                    />
-                  </a-form-item>
-                </a-col>
-                <a-col
-                  :span="2"
-                  style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin-top: 30px;
-                  "
-                >
-                  <a-tooltip
-                    :title="
-                      exportSettings.maintainAspectRatio
-                        ? '锁定宽高比（点击解锁）'
-                        : '解锁宽高比（点击锁定）'
-                    "
-                  >
-                    <a-button
-                      shape="circle"
-                      :type="
-                        exportSettings.maintainAspectRatio
-                          ? 'primary'
-                          : 'default'
-                      "
-                      @click="
-                        exportSettings.maintainAspectRatio =
-                          !exportSettings.maintainAspectRatio
-                      "
-                    >
-                      <template #icon>
-                        <LockOutlined
-                          v-if="exportSettings.maintainAspectRatio"
-                        />
-                        <UnlockOutlined v-else />
-                      </template>
-                    </a-button>
-                  </a-tooltip>
-                </a-col>
-                <a-col :span="11">
-                  <a-form-item label="高度 (像素)">
-                    <a-input-number
-                      v-model:value="exportSettings.height"
-                      :min="1"
-                      :max="10000"
-                      style="width: 100%"
-                      @change="handleHeightChange"
-                    />
-                  </a-form-item>
-                </a-col>
-              </a-row>
-            </a-form-item>
-
-            <a-form-item
-              v-if="exportSettings.sizeType === 'percent'"
-              label="尺寸百分比"
-            >
-              <a-slider
-                v-model:value="exportSettings.percentSize"
-                :min="1"
-                :max="200"
-                :step="1"
-                :tooltipVisible="true"
-                :tipFormatter="simplePercentFormatter"
-                @change="handlePercentChange"
-              />
-            </a-form-item>
-
-            <a-form-item label="DPI (分辨率)">
-              <a-select v-model:value="exportSettings.dpi" style="width: 200px">
-                <a-select-option :value="96">96 DPI (屏幕显示)</a-select-option>
-                <a-select-option :value="150">
-                  150 DPI (普通打印)
-                </a-select-option>
-                <a-select-option :value="300">
-                  300 DPI (高质量打印)
-                </a-select-option>
-                <a-select-option :value="600">
-                  600 DPI (专业印刷)
-                </a-select-option>
-              </a-select>
-            </a-form-item>
-
-            <a-divider />
-
-            <div class="export-info">
-              <div class="export-info-item">
-                <strong>导出尺寸:</strong>
-                {{ exportDimensions.width }} ×
-                {{ exportDimensions.height }} 像素
-              </div>
-              <div class="export-info-item">
-                <strong>估计文件大小:</strong> {{ estimatedFileSize }}
-              </div>
-            </div>
-          </a-form>
-        </a-col>
-
-        <!-- 右侧预览区域 -->
-        <a-col :span="10">
-          <div class="export-preview">
-            <h3>预览效果</h3>
-            <div class="preview-container">
-              <img
-                v-if="exportPreviewUrl"
-                :src="exportPreviewUrl"
-                alt="导出预览"
-                class="preview-image"
-              />
-              <div v-else class="preview-placeholder">
-                <span>生成预览中...</span>
-              </div>
-            </div>
-            <div class="preview-info">
-              <span>此预览图展示的是实际导出效果的近似结果</span>
-            </div>
-          </div>
-        </a-col>
-      </a-row>
-    </a-modal>
+      :exportFormat="exportFormat"
+      :exportQuality="exportQuality"
+      :exportSettings="exportSettings"
+      :exportDimensions="exportDimensions"
+      :estimatedFileSize="estimatedFileSize"
+      :exportPreviewUrl="exportPreviewUrl"
+      @update:exportFormat="exportFormat = $event"
+      @update:exportQuality="exportQuality = $event"
+      @width-change="handleWidthChange"
+      @height-change="handleHeightChange"
+      @percent-change="handlePercentChange"
+      @toggle-aspect="
+        exportSettings.maintainAspectRatio = !exportSettings.maintainAspectRatio
+      "
+      @export-image="exportImage"
+    />
   </div>
 </template>
 
@@ -2010,15 +1708,6 @@ watch(
   flex-direction: column;
   height: 100vh;
   background-color: #f0f2f5;
-}
-
-.toolbar {
-  padding: 10px;
-  background: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  z-index: 10;
 }
 
 .main-content {
