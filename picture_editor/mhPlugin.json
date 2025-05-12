@@ -1,0 +1,9 @@
+{
+  "windowId": "format-converter",
+  "title": "格式转换器",
+  "size": [800, 600],
+  "position": [-1, -1],
+  "alwaysOnTop": false,
+  "resizable": true,
+  "icon": "./public/vite.svg"
+}

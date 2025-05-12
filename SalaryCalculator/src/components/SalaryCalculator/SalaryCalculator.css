@@ -1,0 +1,27 @@
+.salary-calculator {
+  min-height: 100vh;
+  background-color: #f0f2f5;
+}
+
+.calculator-content {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-title {
+  text-align: center;
+  margin-bottom: 2rem !important;
+  color: #1890ff;
+}
+
+@media (max-width: 768px) {
+  .calculator-content {
+    padding: 1rem;
+  }
+
+  .page-title {
+    margin-bottom: 1.5rem !important;
+    font-size: 1.5rem !important;
+  }
+}
