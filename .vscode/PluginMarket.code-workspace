@@ -1,11 +1,13 @@
 {
   "folders": [
     {
-      "path": "../format_converter"
+      "path": "../FormatConverter"
     },
     {
-      "path": "../picture_editor"
+      "path": "../PictureEditor"
     },
+	{ "path": "../SalaryCalculator"
+}
   ],
   "settings": {
     "workbench.activityBar.orientation": "vertical"
