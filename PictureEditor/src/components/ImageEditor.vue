@@ -2,25 +2,6 @@
 import { ref, onMounted, watch, computed } from "vue";
 import { markRaw } from "vue";
 import { useEditorStore } from "../stores/editor";
-import {
-  UndoOutlined,
-  RedoOutlined,
-  PictureOutlined,
-  ScissorOutlined,
-  RotateLeftOutlined,
-  RotateRightOutlined,
-  FontSizeOutlined,
-  FilterOutlined,
-  SaveOutlined,
-  SettingOutlined,
-  ZoomInOutlined,
-  ZoomOutOutlined,
-  OrderedListOutlined,
-  BorderOutlined,
-  HighlightOutlined,
-  LockOutlined,
-  UnlockOutlined,
-} from "@ant-design/icons-vue";
 import { message } from "ant-design-vue";
 import LayerManager from "./LayerManager.vue";
 import { fabric } from "fabric";
@@ -1260,27 +1241,6 @@ const openExportModal = async () => {
   await updateExportPreview(); // 生成初始预览图
 };
 
-// 添加处理滤镜滑块改变的新方法
-type FilterKey = "brightness" | "contrast" | "saturation";
-
-// 添加获取当前滤镜值的方法
-const getCurrentFilterValue = (type: FilterKey) => {
-  if (filterTarget.value === "object") {
-    // 如果是图层模式且有选中对象则返回图层滤镜值
-    if (
-      editorStore.selectedObject &&
-      editorStore.selectedObject.type === "image"
-    ) {
-      return filters.value[type];
-    }
-    // 否则返回0
-    return 0;
-  } else {
-    // 画布模式返回画布滤镜值
-    return canvasFilters.value[type];
-  }
-};
-
 // 监听滤镜变化
 watch(
   [filters, canvasFilters, filterTarget],
@@ -1470,14 +1430,7 @@ const handleSaturationChange = (value: number) => {
   }
 };
 
-// 为tipFormatter添加类型定义
-const percentFormatter = (value: number): string =>
-  `${Math.round(value * 100)}%`;
-const simplePercentFormatter = (value: number): string => `${value}%`;
-
-/**
- * 应用属性到选中的对象
- */
+// 应用属性到选中的对象
 const applyObjectProperties = () => {
   if (!editorStore.selectedObject || !editorStore.canvas) return;
 

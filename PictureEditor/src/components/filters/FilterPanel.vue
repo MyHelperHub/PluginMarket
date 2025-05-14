@@ -15,7 +15,7 @@
         <span>亮度</span>
         <a-slider
           :value="getCurrentFilterValue('brightness')"
-          @change="$emit('brightness-change', $event)"
+          @change="(val: number) => $emit('brightness-change', val)"
           :min="-100"
           :max="100"
           :disabled="internalFilterTarget === 'object' && !selectedObject"
@@ -25,7 +25,7 @@
         <span>对比度</span>
         <a-slider
           :value="getCurrentFilterValue('contrast')"
-          @change="$emit('contrast-change', $event)"
+          @change="(val: number) => $emit('contrast-change', val)"
           :min="-100"
           :max="100"
           :disabled="internalFilterTarget === 'object' && !selectedObject"
@@ -35,7 +35,7 @@
         <span>饱和度</span>
         <a-slider
           :value="getCurrentFilterValue('saturation')"
-          @change="$emit('saturation-change', $event)"
+          @change="(val: number) => $emit('saturation-change', val)"
           :min="-100"
           :max="100"
           :disabled="internalFilterTarget === 'object' && !selectedObject"
@@ -48,8 +48,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import type { fabric } from "fabric";
-
-type FilterKey = "brightness" | "contrast" | "saturation";
+import type { FilterKey } from "../../utils/formatters";
 
 const props = defineProps<{
   filterTarget: string;

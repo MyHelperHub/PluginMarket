@@ -126,14 +126,20 @@ function processImage(
   return result;
 }
 
+// 确保正确的 self 类型
+const workerSelf = self as unknown as Worker;
+
 // 监听主线程消息
-self.addEventListener("message", (e) => {
+workerSelf.addEventListener("message", (e) => {
   const { imageData, actions } = e.data;
 
   if (imageData && actions) {
     const result = processImage(imageData, actions);
-    // 将处理后的图像数据返回给主线程
-    self.postMessage({ imageData: result }, [result.data.buffer]);
+    // 将处理后的图像数据返回给主线程，使用正确的 postMessage 选项
+    workerSelf.postMessage(
+      { imageData: result },
+      { transfer: [result.data.buffer] }
+    );
   }
 });
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Card, Statistic, Row, Col, Progress, Typography, Divider, Tag, Tooltip } from 'antd';
 import { 
   DollarOutlined, 
@@ -17,7 +17,7 @@ import { formatCurrency, formatCurrencySimple } from '@/utils/dateUtils';
 import useInterval from '@/hooks/useInterval';
 import './SalaryDisplay.css';
 
-const { Text, Title } = Typography;
+const { Title } = Typography;
 
 interface SalaryDisplayProps {
   formData: SalaryParamsType;
@@ -147,9 +147,6 @@ const SalaryDisplay = ({ formData, salaryStats }: SalaryDisplayProps) => {
     
     // 计算总休息时间（毫秒）
     let totalRestMs = daysDiff * restMsPerDay;
-    
-    // 如果是同一天开始工作，或者是工作的第一天
-    const isWorkStartDay = startDate === nowDate && startMonth === nowMonth && startYear === nowYear;
     
     // 今天已经过的休息时间
     let todayRestMs = 0;

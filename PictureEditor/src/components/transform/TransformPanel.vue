@@ -28,10 +28,10 @@ import {
   ZoomInOutlined,
 } from "@ant-design/icons-vue";
 
-const props = defineProps<{
+defineProps<{
   selectedObject: fabric.Object | null;
 }>();
-const emit = defineEmits<{
+defineEmits<{
   (e: "rotate", value: number): void;
   (e: "zoom", value: number): void;
 }>();

@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Form, Input, InputNumber, DatePicker, Radio, Switch, Card, Tooltip, TimePicker, Row, Col } from 'antd';
+import { Form, InputNumber, DatePicker, Radio, Switch, Card, Tooltip, TimePicker, Row, Col } from 'antd';
 import { 
   DollarOutlined, 
   CalendarOutlined, 
   FieldTimeOutlined,
   QuestionCircleOutlined,
-  ClockCircleOutlined,
-  CoffeeOutlined
+  ClockCircleOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { SalaryFormData } from '@/types/salary';

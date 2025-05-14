@@ -272,7 +272,6 @@ const SalaryCalculator: React.FC = () => {
               salaryStats={salaryStats}
             />
             <SalaryChart 
-              formData={salaryParams}
               salaryStats={salaryStats}
             />
           </Col>

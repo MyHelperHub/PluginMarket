@@ -50,7 +50,8 @@ watch(
 
 // 图层列表
 const layers = computed(() => {
-  const triggerValue = updateTrigger.value;
+  // 这个变量用于触发图层更新，不需要实际使用它的值
+  updateTrigger.value; // 只是为了触发计算属性重新计算
 
   const canvas = editorStore.canvas;
   if (!canvas) return [];

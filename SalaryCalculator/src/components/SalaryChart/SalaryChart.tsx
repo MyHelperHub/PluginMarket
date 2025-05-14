@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Card } from 'antd';
 import './SalaryChart.css';
-import type { SalaryParamsType } from '@/utils/salaryCalculator';
 import { formatCurrency } from '@/utils/dateUtils';
 
 interface SalaryChartProps {
-  formData: SalaryParamsType;
   salaryStats: {
     dailySalary: number;
     totalEarnedSalary: number;
@@ -13,7 +11,7 @@ interface SalaryChartProps {
   };
 }
 
-const SalaryChart = ({ formData, salaryStats }: SalaryChartProps) => {
+const SalaryChart = ({ salaryStats }: SalaryChartProps) => {
   const [chartData, setChartData] = useState<{ earned: number, remaining: number }>({
     earned: salaryStats.totalEarnedSalary,
     remaining: salaryStats.remainingSalary

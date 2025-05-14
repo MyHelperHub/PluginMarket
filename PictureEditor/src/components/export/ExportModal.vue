@@ -1,7 +1,7 @@
 <template>
   <a-modal
     :open="open"
-    @update:open="(val) => emit('update:open', val)"
+    @update:open="(val: boolean) => emit('update:open', val)"
     title="导出图片"
     @ok="$emit('export-image')"
     width="800px"
@@ -14,7 +14,7 @@
               <a-form-item label="格式">
                 <a-select
                   :value="exportFormat"
-                  @change="(val) => emit('update:exportFormat', val)"
+                  @change="(val: string) => emit('update:exportFormat', val)"
                 >
                   <a-select-option value="png">PNG</a-select-option>
                   <a-select-option value="jpeg">JPEG</a-select-option>
@@ -27,7 +27,7 @@
               <a-form-item label="质量" v-if="exportFormat !== 'png'">
                 <a-slider
                   :value="exportQuality"
-                  @change="(val) => emit('update:exportQuality', val)"
+                  @change="(val: number) => emit('update:exportQuality', val)"
                   :min="0.1"
                   :max="1"
                   :step="0.1"
@@ -43,7 +43,7 @@
           <a-form-item label="尺寸类型">
             <a-radio-group
               :value="exportSettings.sizeType"
-              @change="(val) => (exportSettings.sizeType = val)"
+              @change="(val: string) => (exportSettings.sizeType = val)"
               button-style="solid"
             >
               <a-radio-button value="pixel">像素</a-radio-button>
@@ -60,7 +60,7 @@
                     :min="1"
                     :max="10000"
                     style="width: 100%"
-                    @change="(val) => emit('width-change', val)"
+                    @change="(val: number) => emit('width-change', val)"
                   />
                 </a-form-item>
               </a-col>
@@ -101,7 +101,7 @@
                     :min="1"
                     :max="10000"
                     style="width: 100%"
-                    @change="(val) => emit('height-change', val)"
+                    @change="(val: number) => emit('height-change', val)"
                   />
                 </a-form-item>
               </a-col>
@@ -119,14 +119,14 @@
               :step="1"
               :tooltipVisible="true"
               :tipFormatter="simplePercentFormatter"
-              @change="(val) => emit('percent-change', val)"
+              @change="(val: number) => emit('percent-change', val)"
             />
           </a-form-item>
 
           <a-form-item label="DPI (分辨率)">
             <a-select
               :value="exportSettings.dpi"
-              @change="(val) => (exportSettings.dpi = val)"
+              @change="(val: number) => (exportSettings.dpi = val)"
               style="width: 200px"
             >
               <a-select-option :value="96">96 DPI (屏幕显示)</a-select-option>
@@ -176,18 +176,26 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits } from "vue";
 import { LockOutlined, UnlockOutlined } from "@ant-design/icons-vue";
+import { formatPercent, formatSimplePercent } from "../../utils/formatters";
 
-const props = defineProps<{
+defineProps<{
   open: boolean;
   exportFormat: string;
   exportQuality: number;
-  exportSettings: any;
+  exportSettings: {
+    sizeType: string;
+    width: number;
+    height: number;
+    maintainAspectRatio: boolean;
+    percentSize: number;
+    dpi: number;
+  };
   exportDimensions: { width: number; height: number };
   estimatedFileSize: string;
   exportPreviewUrl: string;
 }>();
+
 const emit = defineEmits<{
   (e: "update:open", val: boolean): void;
   (e: "update:exportFormat", val: string): void;
@@ -199,8 +207,8 @@ const emit = defineEmits<{
   (e: "export-image"): void;
 }>();
 
-const percentFormatter = (value: number) => `${Math.round(value * 100)}%`;
-const simplePercentFormatter = (value: number) => `${value}%`;
+const percentFormatter = formatPercent;
+const simplePercentFormatter = formatSimplePercent;
 </script>
 
 <style scoped>

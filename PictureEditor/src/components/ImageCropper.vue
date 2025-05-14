@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch } from "vue";
 import { useEditorStore } from "../stores/editor";
 import { fabric } from "fabric";
 
@@ -52,7 +52,8 @@ const initCropper = () => {
     return;
   }
 
-  originalImage.value = activeObj as fabric.Image;
+  // 类型转换时使用 unknown 作为中间步骤
+  originalImage.value = activeObj as unknown as fabric.Image;
 
   // 禁用其他交互
   canvas.discardActiveObject();
@@ -125,16 +126,15 @@ const completeCrop = () => {
   const cropRect = cropRectRef.value;
   const image = originalImage.value;
 
-  const imgWidth = image.width || 100;
-  const imgHeight = image.height || 100;
+  // 不需要这些变量，删除它们
   const imgScaleX = image.scaleX || 1;
   const imgScaleY = image.scaleY || 1;
 
-  // 计算相对位置
-  const relativeLeft = (cropRect.left - image.left) / imgScaleX;
-  const relativeTop = (cropRect.top - image.top) / imgScaleY;
-  const relativeWidth = cropRect.width / imgScaleX;
-  const relativeHeight = cropRect.height / imgScaleY;
+  // 计算相对位置，添加安全检查
+  const relativeLeft = ((cropRect.left || 0) - (image.left || 0)) / imgScaleX;
+  const relativeTop = ((cropRect.top || 0) - (image.top || 0)) / imgScaleY;
+  const relativeWidth = (cropRect.width || 0) / imgScaleX;
+  const relativeHeight = (cropRect.height || 0) / imgScaleY;
 
   // 裁剪图像
   image.clipPath = new fabric.Rect({
@@ -178,7 +178,7 @@ watch(aspectRatio, (newRatio) => {
 
   // 保持中心点不变，调整高度以匹配宽高比
   const center = cropRect.getCenterPoint();
-  const width = cropRect.width;
+  const width = cropRect.width || 0;
   const newHeight = width / newRatio;
 
   cropRect.set({

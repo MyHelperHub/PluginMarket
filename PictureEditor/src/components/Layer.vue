@@ -14,7 +14,6 @@ import {
   HighlightOutlined,
   BorderOutlined,
 } from "@ant-design/icons-vue";
-import { fabric } from "fabric";
 
 // 接收属性
 const props = defineProps({
@@ -212,9 +211,9 @@ const handleToggleLock = (event: Event) => {
           :min="0"
           :max="1"
           :step="0.01"
-          :tipFormatter="(val) => `${Math.round(val * 100)}%`"
+          :tipFormatter="(val: number) => `${Math.round(val * 100)}%`"
           style="flex: 1"
-          @change="(value) => emit('change-opacity', value)"
+          @change="(value: number) => emit('change-opacity', value)"
           @click.stop
         />
       </div>

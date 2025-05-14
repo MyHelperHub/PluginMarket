@@ -91,7 +91,6 @@ export const calculateWorkedHours = (
 
   // 计算当天工作的小时数
   const remainingMsDiff = totalTimeDiff % (1000 * 60 * 60 * 24);
-  const currentDayHours = remainingMsDiff / (1000 * 60 * 60);
 
   // 计算总休息时间（小时）
   const totalRestHours =
@@ -204,7 +203,6 @@ export const calculateRealtimeSalary = (params: SalaryParamsType): number => {
     hoursPerDay,
     workingStartDate,
     workingStartTime,
-    restTime,
     restStartTime,
     restEndTime,
   } = params;
