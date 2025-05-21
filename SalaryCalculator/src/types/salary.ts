@@ -2,16 +2,21 @@
  * 工资计算器相关类型定义
  */
 
+export interface BreakTime {
+  id: string;
+  startTime: string; // 格式 "HH:mm"
+  endTime: string; // 格式 "HH:mm"
+}
+
 export interface SalaryFormData {
   monthlySalary: number;
   workingDaysPerMonth: number | null;
   restType: "one" | "two";
-  hoursPerDay: number;
-  workingStartDate: Date;
+  workingDate: Date;
   workingStartTime: string; // 格式 "HH:mm"
-  restTime: number; // 休息时间，单位分钟
-  restStartTime: string; // 休息开始时间，格式 "HH:mm"
-  restEndTime: string; // 休息结束时间，格式 "HH:mm"
+  workingEndTime: string; // 格式 "HH:mm"
+  breakTimes: BreakTime[]; // 休息时间数组
+  restTime: number; // 总休息时间，单位分钟 (计算得出)
   useCustomWorkingDays: boolean;
 }
 

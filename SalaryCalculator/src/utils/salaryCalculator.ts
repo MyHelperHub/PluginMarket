@@ -1,22 +1,137 @@
 /**
  * 工资计算工具函数
  */
+import { BreakTime } from "@/types/salary";
 
 export interface SalaryParams {
   monthlySalary: number;
   workingDaysPerMonth: number | null;
   restType: "one" | "two"; // 'one' 表示单休, 'two' 表示双休
-  hoursPerDay: number;
-  workingStartDate: Date;
+  workingDate: Date;
   workingStartTime: string; // 格式 "HH:mm"
-  restTime: number; // 休息时间（分钟）
-  restStartTime: string; // 休息开始时间，格式 "HH:mm"
-  restEndTime: string; // 休息结束时间，格式 "HH:mm"
+  workingEndTime: string; // 格式 "HH:mm"
+  breakTimes: BreakTime[]; // 休息时间数组
+  restTime: number; // 总休息时间（分钟）
 }
 
 // 导出类型，便于模块导入
 type SalaryParamsType = SalaryParams;
 export type { SalaryParamsType };
+
+/**
+ * 计算休息时间段的时长（分钟）
+ */
+export const calculateBreakDuration = (
+  startTime: string,
+  endTime: string
+): number => {
+  const [startHours, startMinutes] = startTime.split(":").map(Number);
+  const [endHours, endMinutes] = endTime.split(":").map(Number);
+
+  const startTotalMinutes = startHours * 60 + startMinutes;
+  const endTotalMinutes = endHours * 60 + endMinutes;
+
+  // 计算总分钟数
+  const durationMinutes = endTotalMinutes - startTotalMinutes;
+
+  return durationMinutes;
+};
+
+/**
+ * 检查休息时间是否有重叠或者无效
+ * @returns 如果有重叠或者无效返回true，否则返回false
+ */
+export const hasOverlappingBreaks = (
+  breakTimes: BreakTime[],
+  workingStartTime: string,
+  workingEndTime: string
+): boolean => {
+  if (breakTimes.length <= 1) return false;
+
+  // 检查每个休息时间是否在工作时间范围内
+  for (const breakTime of breakTimes) {
+    const startInvalid = !isTimeInWorkRange(
+      breakTime.startTime,
+      workingStartTime,
+      workingEndTime
+    );
+    const endInvalid = !isTimeInWorkRange(
+      breakTime.endTime,
+      workingStartTime,
+      workingEndTime
+    );
+
+    if (startInvalid || endInvalid) return true;
+  }
+
+  // 检查休息时间间是否重叠
+  for (let i = 0; i < breakTimes.length; i++) {
+    for (let j = i + 1; j < breakTimes.length; j++) {
+      if (isBreakTimeOverlap(breakTimes[i], breakTimes[j])) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
+/**
+ * 检查时间是否在工作时间范围内
+ */
+export const isTimeInWorkRange = (
+  time: string,
+  workStartTime: string,
+  workEndTime: string
+): boolean => {
+  const timeMinutes = convertTimeToMinutes(time);
+  const startMinutes = convertTimeToMinutes(workStartTime);
+  const endMinutes = convertTimeToMinutes(workEndTime);
+
+  // 标准情况：时间必须在开始时间和结束时间之间
+  return timeMinutes >= startMinutes && timeMinutes <= endMinutes;
+};
+
+/**
+ * 将时间转换为总分钟数
+ */
+export const convertTimeToMinutes = (time: string): number => {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+};
+
+/**
+ * 检查两个休息时间是否重叠
+ */
+const isBreakTimeOverlap = (breakA: BreakTime, breakB: BreakTime): boolean => {
+  const startA = convertTimeToMinutes(breakA.startTime);
+  const endA = convertTimeToMinutes(breakA.endTime);
+  const startB = convertTimeToMinutes(breakB.startTime);
+  const endB = convertTimeToMinutes(breakB.endTime);
+
+  // 标准情况：两个时间段重叠的条件是一个时间段的开始时间小于另一个时间段的结束时间
+  // 并且这个时间段的结束时间大于另一个时间段的开始时间
+  return Math.max(startA, startB) < Math.min(endA, endB);
+};
+
+/**
+ * 计算所有休息时间的总时长（分钟）
+ */
+export const calculateTotalBreakMinutes = (breakTimes: BreakTime[]): number => {
+  if (!breakTimes || breakTimes.length === 0) return 0;
+
+  return breakTimes.reduce((total, breakTime) => {
+    if (!breakTime.startTime || !breakTime.endTime) return total;
+
+    const startMinutes = convertTimeToMinutes(breakTime.startTime);
+    const endMinutes = convertTimeToMinutes(breakTime.endTime);
+
+    // 确保结束时间大于开始时间（不考虑跨天）
+    if (endMinutes <= startMinutes) return total;
+
+    return total + (endMinutes - startMinutes);
+  }, 0);
+};
 
 /**
  * 根据休息类型计算每月工作天数
@@ -50,60 +165,87 @@ export const calculateDailySalary = (
  */
 export const calculateHourlySalary = (
   dailySalary: number,
-  hoursPerDay: number
+  workingHours: number
 ): number => {
-  return dailySalary / hoursPerDay;
+  return dailySalary / workingHours;
+};
+
+/**
+ * 计算工作时长（小时）
+ */
+export const calculateWorkingHours = (
+  startTimeStr: string,
+  endTimeStr: string,
+  totalBreakMinutes: number
+): number => {
+  const [startHours, startMinutes] = startTimeStr.split(":").map(Number);
+  const [endHours, endMinutes] = endTimeStr.split(":").map(Number);
+
+  const startTotalMinutes = startHours * 60 + startMinutes;
+  const endTotalMinutes = endHours * 60 + endMinutes;
+
+  // 计算总工作分钟数
+  const totalMinutes = endTotalMinutes - startTotalMinutes;
+
+  // 减去休息时间
+  const workingMinutes = totalMinutes - totalBreakMinutes;
+
+  // 转换为小时
+  return workingMinutes / 60;
 };
 
 /**
  * 解析工作开始时间字符串为Date对象
  */
 export const parseWorkingStartDateTime = (
-  startDate: Date,
+  workDate: Date,
   startTimeStr: string
 ): Date => {
   const [hours, minutes] = startTimeStr.split(":").map(Number);
-  const startDateTime = new Date(startDate);
+  const startDateTime = new Date(workDate);
   startDateTime.setHours(hours, minutes, 0, 0);
   return startDateTime;
 };
 
 /**
- * 计算已经工作的时间（考虑休息时间）
- * @returns 工作时间（小时）
+ * 解析工作结束时间字符串为Date对象
  */
-export const calculateWorkedHours = (
-  startDateTime: Date,
-  restMinutes: number
-): number => {
-  const now = new Date();
+export const parseWorkingEndDateTime = (
+  workDate: Date,
+  endTimeStr: string
+): Date => {
+  const [hours, minutes] = endTimeStr.split(":").map(Number);
+  const endDateTime = new Date(workDate);
+  endDateTime.setHours(hours, minutes, 0, 0);
+  return endDateTime;
+};
 
-  // 如果还没到开始时间，返回0
-  if (now < startDateTime) {
-    return 0;
-  }
+/**
+ * 检查当前时间是否在任一休息时间段内
+ */
+export const isInAnyBreakTime = (
+  currentTime: Date,
+  breakTimes: BreakTime[]
+): boolean => {
+  if (breakTimes.length === 0) return false;
 
-  // 总时间差（毫秒）
-  const totalTimeDiff = now.getTime() - startDateTime.getTime();
+  // 将当前时间转换为分钟数
+  const currentHours = currentTime.getHours();
+  const currentMinutes = currentTime.getMinutes();
+  const currentTotalMinutes = currentHours * 60 + currentMinutes;
 
-  // 计算工作日数（整天）
-  const dayDiff = Math.floor(totalTimeDiff / (1000 * 60 * 60 * 24));
+  // 检查当前时间是否在任一休息时间段内
+  return breakTimes.some((breakTime) => {
+    // 将休息时间转换为分钟数
+    const startTotalMinutes = convertTimeToMinutes(breakTime.startTime);
+    const endTotalMinutes = convertTimeToMinutes(breakTime.endTime);
 
-  // 计算当天工作的小时数
-  const remainingMsDiff = totalTimeDiff % (1000 * 60 * 60 * 24);
-
-  // 计算总休息时间（小时）
-  const totalRestHours =
-    (dayDiff * restMinutes +
-      (dayDiff > 0
-        ? restMinutes
-        : Math.min(restMinutes, remainingMsDiff / (1000 * 60)))) /
-    60;
-
-  // 总工作时间 = 总时间 - 总休息时间
-  const totalWorkHours = totalTimeDiff / (1000 * 60 * 60) - totalRestHours;
-
-  return Math.max(0, totalWorkHours);
+    // 当前时间在休息开始时间和结束时间之间
+    return (
+      currentTotalMinutes >= startTotalMinutes &&
+      currentTotalMinutes <= endTotalMinutes
+    );
+  });
 };
 
 /**
@@ -177,19 +319,32 @@ function areParamsEqual(
   paramsA: SalaryParamsType,
   paramsB: SalaryParamsType
 ): boolean {
-  return (
+  // 检查基本属性
+  const basicEqual =
     paramsA.monthlySalary === paramsB.monthlySalary &&
     paramsA.workingDaysPerMonth === paramsB.workingDaysPerMonth &&
     paramsA.restType === paramsB.restType &&
-    paramsA.hoursPerDay === paramsB.hoursPerDay &&
     paramsA.restTime === paramsB.restTime &&
-    paramsA.restStartTime === paramsB.restStartTime &&
-    paramsA.restEndTime === paramsB.restEndTime &&
     paramsA.workingStartTime === paramsB.workingStartTime &&
-    paramsA.workingStartDate instanceof Date &&
-    paramsB.workingStartDate instanceof Date &&
-    paramsA.workingStartDate.getTime() === paramsB.workingStartDate.getTime()
-  );
+    paramsA.workingEndTime === paramsB.workingEndTime &&
+    paramsA.workingDate instanceof Date &&
+    paramsB.workingDate instanceof Date &&
+    paramsA.workingDate.getTime() === paramsB.workingDate.getTime();
+
+  if (!basicEqual) return false;
+
+  // 检查休息时间数组
+  if (paramsA.breakTimes.length !== paramsB.breakTimes.length) return false;
+
+  // 检查每个休息时间段是否相同
+  return paramsA.breakTimes.every((breakA, index) => {
+    const breakB = paramsB.breakTimes[index];
+    return (
+      breakA.id === breakB.id &&
+      breakA.startTime === breakB.startTime &&
+      breakA.endTime === breakB.endTime
+    );
+  });
 }
 
 /**
@@ -200,37 +355,33 @@ export const calculateRealtimeSalary = (params: SalaryParamsType): number => {
     monthlySalary,
     workingDaysPerMonth,
     restType,
-    hoursPerDay,
-    workingStartDate,
+    workingDate,
     workingStartTime,
-    restStartTime,
-    restEndTime,
+    workingEndTime,
+    breakTimes,
   } = params;
-
-  // 解析日期和时间到数字，避免重复解析
-  const parseTime = (
-    timeStr: string
-  ): { hours: number; minutes: number; totalMinutes: number } => {
-    const [hours, minutes] = timeStr.split(":").map(Number);
-    return {
-      hours,
-      minutes,
-      totalMinutes: hours * 60 + minutes,
-    };
-  };
 
   // 如果没有提供工作天数，使用根据休息类型计算的天数
   const actualWorkingDays =
     workingDaysPerMonth || calculateWorkingDaysPerMonth(restType);
 
-  const dailySalary = calculateDailySalary(monthlySalary, actualWorkingDays);
-  const hourlySalary = calculateHourlySalary(dailySalary, hoursPerDay);
+  // 计算有效工作时长 (小时)
+  const workingHours = calculateWorkingHours(
+    workingStartTime,
+    workingEndTime,
+    params.restTime
+  );
 
-  // 解析完整的开始时间
+  // 计算每天、每小时工资
+  const dailySalary = calculateDailySalary(monthlySalary, actualWorkingDays);
+  const hourlySalary = calculateHourlySalary(dailySalary, workingHours);
+
+  // 解析完整的开始和结束时间
   const startDateTime = parseWorkingStartDateTime(
-    workingStartDate,
+    workingDate,
     workingStartTime
   );
+  const endDateTime = parseWorkingEndDateTime(workingDate, workingEndTime);
 
   // 当前时间
   const now = new Date();
@@ -240,145 +391,59 @@ export const calculateRealtimeSalary = (params: SalaryParamsType): number => {
     return 0;
   }
 
-  // 解析休息时间
-  const restStartData = parseTime(restStartTime);
-  const restEndData = parseTime(restEndTime);
-
-  // 创建今天的休息时间对象 - 优化为只创建必要的对象
-  const now_hours = now.getHours();
-  const now_minutes = now.getMinutes();
-  const now_totalMinutes = now_hours * 60 + now_minutes;
-
-  const start_hours = startDateTime.getHours();
-  const start_minutes = startDateTime.getMinutes();
-  const start_totalMinutes = start_hours * 60 + start_minutes;
-
-  // 检查是否是跨天休息
-  const isRestCrossingDay =
-    restEndData.totalMinutes < restStartData.totalMinutes;
-
-  // 检查当前是否在休息时间内 - 优化计算逻辑
-  const isInRestTime = isRestCrossingDay
-    ? now_totalMinutes >= restStartData.totalMinutes ||
-      now_totalMinutes <= restEndData.totalMinutes
-    : now_totalMinutes >= restStartData.totalMinutes &&
-      now_totalMinutes <= restEndData.totalMinutes;
-
-  // 如果当前在休息时间内
-  if (isInRestTime) {
-    // 如果工作开始时间在今天的休息时间之后，直接计算从工作开始到当前的收入
-    if (start_totalMinutes >= restEndData.totalMinutes) {
-      // 计算时间差（小时）
-      const hours =
-        (now.getTime() - startDateTime.getTime()) / (1000 * 60 * 60);
-      return hourlySalary * hours;
-    }
-
-    // 如果工作开始时间在休息时间之前，只计算到休息开始的收入
-    if (start_totalMinutes < restStartData.totalMinutes) {
-      // 创建休息开始时间对象
-      const restStartDateTime = new Date(now);
-      restStartDateTime.setHours(
-        restStartData.hours,
-        restStartData.minutes,
-        0,
-        0
-      );
-
-      // 如果休息开始时间在今天之前，说明已经过了一天，需要调整日期
-      if (
-        startDateTime.getDate() !== now.getDate() ||
-        startDateTime.getMonth() !== now.getMonth() ||
-        startDateTime.getFullYear() !== now.getFullYear()
-      ) {
-        // 如果是不同天，我们需要正确计算工作日
-        // 使用开始日期的时间点
-        restStartDateTime.setFullYear(
-          startDateTime.getFullYear(),
-          startDateTime.getMonth(),
-          startDateTime.getDate()
-        );
-      }
-
-      // 计算从工作开始到休息开始的小时数
-      const hours =
-        (restStartDateTime.getTime() - startDateTime.getTime()) /
-        (1000 * 60 * 60);
-      return hourlySalary * Math.max(0, hours);
-    }
-
-    // 如果工作开始时间在休息时间内，则到现在为止未产生收入
-    return 0;
+  // 如果已经超过结束时间，返回全天工资
+  if (now > endDateTime) {
+    return dailySalary;
   }
 
-  // 如果当前不在休息时间内
+  // 1. 计算从工作开始到现在的总时间（小时）
+  const elapsedHours =
+    (now.getTime() - startDateTime.getTime()) / (1000 * 60 * 60);
 
-  // 如果工作开始在休息前，现在在休息后
-  if (
-    start_totalMinutes < restStartData.totalMinutes &&
-    now_totalMinutes > restEndData.totalMinutes
-  ) {
-    // 创建休息时间对象
-    const restStartDateTime = new Date(now);
-    restStartDateTime.setHours(
-      restStartData.hours,
-      restStartData.minutes,
+  // 2. 计算已经过去的休息时间（小时）
+  let passedBreakHours = 0;
+
+  for (const breakTime of breakTimes) {
+    // 将休息时间转换为日期对象
+    const breakStartTime = new Date(workingDate);
+    breakStartTime.setHours(
+      parseInt(breakTime.startTime.split(":")[0]),
+      parseInt(breakTime.startTime.split(":")[1]),
       0,
       0
     );
 
-    const restEndDateTime = new Date(now);
-    restEndDateTime.setHours(restEndData.hours, restEndData.minutes, 0, 0);
-
-    // 处理跨天日期问题
-    if (
-      startDateTime.getDate() !== now.getDate() ||
-      startDateTime.getMonth() !== now.getMonth() ||
-      startDateTime.getFullYear() !== now.getFullYear()
-    ) {
-      // 如果是不同天，使用工作开始日的日期作为基准
-      restStartDateTime.setFullYear(
-        startDateTime.getFullYear(),
-        startDateTime.getMonth(),
-        startDateTime.getDate()
-      );
-
-      // 对于休息结束时间，如果是跨天的，需要设置为下一天
-      restEndDateTime.setFullYear(
-        startDateTime.getFullYear(),
-        startDateTime.getMonth(),
-        startDateTime.getDate()
-      );
-
-      // 如果是跨天休息，调整结束日期
-      if (isRestCrossingDay) {
-        restEndDateTime.setDate(restEndDateTime.getDate() + 1);
-      }
-    } else {
-      // 同一天的情况，如果休息时间是跨天的，需要调整结束日期
-      if (isRestCrossingDay && restEndDateTime < restStartDateTime) {
-        restEndDateTime.setDate(restEndDateTime.getDate() + 1);
-      }
-    }
-
-    // 计算休息前的有效工作时间（小时）
-    const hoursBeforeRest =
-      (restStartDateTime.getTime() - startDateTime.getTime()) /
-      (1000 * 60 * 60);
-
-    // 计算休息后的有效工作时间（小时）
-    const hoursAfterRest =
-      (now.getTime() - restEndDateTime.getTime()) / (1000 * 60 * 60);
-
-    // 总收入 = 休息前收入 + 休息后收入
-    return (
-      hourlySalary *
-      (Math.max(0, hoursBeforeRest) + Math.max(0, hoursAfterRest))
+    const breakEndTime = new Date(workingDate);
+    breakEndTime.setHours(
+      parseInt(breakTime.endTime.split(":")[0]),
+      parseInt(breakTime.endTime.split(":")[1]),
+      0,
+      0
     );
+
+    // 计算这个休息时间段和有效工作时间的交集
+
+    // 确定交集的开始时间 - 取较晚的开始时间
+    const intersectStart = new Date(
+      Math.max(startDateTime.getTime(), breakStartTime.getTime())
+    );
+
+    // 确定交集的结束时间 - 取较早的结束时间
+    const intersectEnd = new Date(
+      Math.min(now.getTime(), breakEndTime.getTime())
+    );
+
+    // 如果存在交集（开始时间早于结束时间），则计算交集时长并添加到已过去的休息时间中
+    if (intersectStart < intersectEnd) {
+      const breakDuration =
+        (intersectEnd.getTime() - intersectStart.getTime()) / (1000 * 60 * 60);
+      passedBreakHours += breakDuration;
+    }
   }
 
-  // 简化逻辑：如果不属于以上特殊情况，直接计算总时间
-  const totalHours =
-    (now.getTime() - startDateTime.getTime()) / (1000 * 60 * 60);
-  return hourlySalary * totalHours;
+  // 3. 计算有效工作时间（总时间 - 休息时间）
+  const effectiveWorkHours = Math.max(0, elapsedHours - passedBreakHours);
+
+  // 4. 计算已经赚取的工资
+  return hourlySalary * effectiveWorkHours;
 };
