@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { Card, Statistic, Row, Col, Progress, Typography, Divider, Tag, Tooltip } from 'antd';
+import { Card, Statistic, Row, Col, Progress, Typography, Divider, Tag, Tooltip, List } from 'antd';
 import { 
   DollarOutlined, 
   ClockCircleOutlined, 
@@ -12,7 +12,7 @@ import {
   QuestionCircleOutlined
 } from '@ant-design/icons';
 import type { SalaryParamsType } from '@/utils/salaryCalculator';
-import { calculateRealtimeSalaryCached, parseWorkingStartDateTime } from '@/utils/salaryCalculator';
+import { calculateRealtimeSalaryCached, parseWorkingStartDateTime, parseWorkingEndDateTime, isInAnyBreakTime, calculateBreakDuration } from '@/utils/salaryCalculator';
 import { formatCurrency, formatCurrencySimple } from '@/utils/dateUtils';
 import useInterval from '@/hooks/useInterval';
 import './SalaryDisplay.css';
@@ -39,10 +39,18 @@ const SalaryDisplay = ({ formData, salaryStats }: SalaryDisplayProps) => {
   // 解析开始工作时间 - 只在formData改变时重新计算
   const startDateTime = useMemo(() => {
     return parseWorkingStartDateTime(
-      formData.workingStartDate,
+      formData.workingDate,
       formData.workingStartTime
     );
-  }, [formData.workingStartDate, formData.workingStartTime]);
+  }, [formData.workingDate, formData.workingStartTime]);
+  
+  // 解析结束工作时间
+  const endDateTime = useMemo(() => {
+    return parseWorkingEndDateTime(
+      formData.workingDate,
+      formData.workingEndTime
+    );
+  }, [formData.workingDate, formData.workingEndTime]);
   
   // 格式化时间方法
   const formatDateTime = useCallback((date: Date) => {
@@ -55,10 +63,15 @@ const SalaryDisplay = ({ formData, salaryStats }: SalaryDisplayProps) => {
     });
   }, []);
   
-  // 格式化时间
+  // 格式化开始时间
   const formattedStartDateTime = useMemo(() => {
     return formatDateTime(startDateTime);
   }, [startDateTime, formatDateTime]);
+  
+  // 格式化结束时间
+  const formattedEndDateTime = useMemo(() => {
+    return formatDateTime(endDateTime);
+  }, [endDateTime, formatDateTime]);
   
   // 更新当前工资和时间的函数
   const updateSalaryAndTime = useCallback(() => {
@@ -96,26 +109,6 @@ const SalaryDisplay = ({ formData, salaryStats }: SalaryDisplayProps) => {
     };
   }, [currentTime, startDateTime]);
   
-  // 创建休息时间对象 - 只在formData变化时重算
-  const restTimeObjects = useMemo(() => {
-    const restStartTime = new Date();
-    const [restStartHours, restStartMinutes] = formData.restStartTime.split(':').map(Number);
-    restStartTime.setHours(restStartHours, restStartMinutes, 0, 0);
-    
-    const restEndTime = new Date();
-    const [restEndHours, restEndMinutes] = formData.restEndTime.split(':').map(Number);
-    restEndTime.setHours(restEndHours, restEndMinutes, 0, 0);
-    
-    return {
-      restStartTime,
-      restEndTime,
-      restStartHours,
-      restStartMinutes,
-      restEndHours,
-      restEndMinutes
-    };
-  }, [formData.restStartTime, formData.restEndTime]);
-  
   // 计算有效工作时间 - 避免频繁重算
   const effectiveWorkTimeInfo = useMemo(() => {
     // 当前总工作时间
@@ -151,39 +144,55 @@ const SalaryDisplay = ({ formData, salaryStats }: SalaryDisplayProps) => {
     // 今天已经过的休息时间
     let todayRestMs = 0;
     
-    const nowHours = currentTime.getHours();
-    const nowMinutes = currentTime.getMinutes();
-    const nowTotalMinutes = nowHours * 60 + nowMinutes;
+    // 当前是否在休息时间内
+    const currentlyInRest = isInAnyBreakTime(currentTime, formData.breakTimes);
     
-    const startHours = startDateTime.getHours();
-    const startMinutes = startDateTime.getMinutes();
-    const startTotalMinutes = startHours * 60 + startMinutes;
-    
-    const { restStartHours, restStartMinutes, restEndHours, restEndMinutes } = restTimeObjects;
-    const restStartTotalMinutes = restStartHours * 60 + restStartMinutes;
-    const restEndTotalMinutes = restEndHours * 60 + restEndMinutes;
-    
-    // 如果当前时间在休息结束之后，且开始工作时间在休息开始之前
-    if (nowTotalMinutes > restEndTotalMinutes && startTotalMinutes < restStartTotalMinutes) {
-      todayRestMs = formData.restTime * 60 * 1000; // 全部休息时间
-    } 
-    // 如果当前时间在休息时间内
-    else if (isInRestTime()) {
-      // 如果开始工作时间在休息开始之后
-      if (startTotalMinutes > restStartTotalMinutes) {
-        // 从工作开始到现在的时间都是休息时间
-        todayRestMs = (nowTotalMinutes - startTotalMinutes) * 60 * 1000;
-      } else {
-        // 从休息开始到现在的时间是休息时间
-        todayRestMs = (nowTotalMinutes - restStartTotalMinutes) * 60 * 1000;
-      }
+    if (currentlyInRest) {
+      // 如果当前在休息时间内，计算到目前为止的休息时间
+      const currentBreak = formData.breakTimes.find(breakTime => {
+        const [startHours, startMinutes] = breakTime.startTime.split(':').map(Number);
+        const [endHours, endMinutes] = breakTime.endTime.split(':').map(Number);
+        
+        const breakStartTotalMinutes = startHours * 60 + startMinutes;
+        const breakEndTotalMinutes = endHours * 60 + endMinutes;
+        
+        const nowTotalMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+        
+        const isOvernight = breakEndTotalMinutes < breakStartTotalMinutes;
+        
+        return isOvernight
+          ? nowTotalMinutes >= breakStartTotalMinutes || nowTotalMinutes <= breakEndTotalMinutes
+          : nowTotalMinutes >= breakStartTotalMinutes && nowTotalMinutes <= breakEndTotalMinutes;
+      });
       
-      // 确保休息时间不超过总设定的休息时间
-      todayRestMs = Math.min(todayRestMs, formData.restTime * 60 * 1000);
-    } 
-    // 如果当前时间在休息开始之前，没有休息时间
-    else if (nowTotalMinutes < restStartTotalMinutes) {
-      todayRestMs = 0;
+      if (currentBreak) {
+        const [startHours, startMinutes] = currentBreak.startTime.split(':').map(Number);
+        const nowHours = currentTime.getHours();
+        const nowMinutes = currentTime.getMinutes();
+        
+        const breakStartTotalMinutes = startHours * 60 + startMinutes;
+        const nowTotalMinutes = nowHours * 60 + nowMinutes;
+        
+        // 确保计算的是当前休息的时间，而不是全部休息时间
+        todayRestMs = (nowTotalMinutes - breakStartTotalMinutes) * 60 * 1000;
+        
+        // 处理跨天情况
+        if (nowTotalMinutes < breakStartTotalMinutes) {
+          todayRestMs = ((24 * 60) - breakStartTotalMinutes + nowTotalMinutes) * 60 * 1000;
+        }
+      }
+    } else {
+      // 如果当前不在休息时间内，计算已经过去的所有休息时间
+      formData.breakTimes.forEach(breakTime => {
+        const [endHours, endMinutes] = breakTime.endTime.split(':').map(Number);
+        const breakEndTotalMinutes = endHours * 60 + endMinutes;
+        const nowTotalMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+        
+        // 如果休息时间已经结束
+        if (breakEndTotalMinutes < nowTotalMinutes) {
+          todayRestMs += calculateBreakDuration(breakTime.startTime, breakTime.endTime) * 60 * 1000;
+        }
+      });
     }
     
     // 计算总的有效工作时间
@@ -204,31 +213,13 @@ const SalaryDisplay = ({ formData, salaryStats }: SalaryDisplayProps) => {
       effectiveMinutes,
       effectiveTimeStr
     };
-  }, [workTimeInfo, startDateTime, currentTime, formData.restTime, restTimeObjects, isInRestTime]);
+  }, [workTimeInfo, startDateTime, currentTime, formData.restTime, formData.breakTimes]);
   
   // 计算当天工作结束时间 - 只在相关formData变化时重算
   const workEndTimeInfo = useMemo(() => {
-    // 直接使用小时和分钟计算，而不是创建新的Date对象
-    const startHours = startDateTime.getHours();
-    const startMinutes = startDateTime.getMinutes();
-    
-    // 工作时长(小时) + 休息时间(分钟转小时)
-    const totalWorkDuration = formData.hoursPerDay + (formData.restTime / 60);
-    
-    // 计算结束小时和分钟
-    let endHours = startHours + Math.floor(totalWorkDuration);
-    let endMinutes = startMinutes + Math.round((totalWorkDuration % 1) * 60);
-    
-    // 处理分钟进位
-    if (endMinutes >= 60) {
-      endHours += Math.floor(endMinutes / 60);
-      endMinutes %= 60;
-    }
-    
-    // 处理24小时制
-    if (endHours >= 24) {
-      endHours %= 24;
-    }
+    // 直接使用结束时间的小时和分钟
+    const endHours = endDateTime.getHours();
+    const endMinutes = endDateTime.getMinutes();
     
     // 格式化工作结束时间
     const formattedEndTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
@@ -238,7 +229,7 @@ const SalaryDisplay = ({ formData, salaryStats }: SalaryDisplayProps) => {
       endMinutes, 
       formattedEndTime 
     };
-  }, [startDateTime, formData.hoursPerDay, formData.restTime]);
+  }, [endDateTime]);
   
   // 计算剩余工作时间 - 每次更新currentTime时更新
   const remainingTimeInfo = useMemo(() => {
@@ -266,64 +257,39 @@ const SalaryDisplay = ({ formData, salaryStats }: SalaryDisplayProps) => {
     return { remainingWorkHours, remainingWorkMinutes };
   }, [currentTime, workEndTimeInfo]);
   
-  // 格式化休息时间范围 - 只在formData变化时更新
-  const restTimeFormatInfo = useMemo(() => {
-    const { restStartHours, restStartMinutes, restEndHours, restEndMinutes } = restTimeObjects;
-    
-    // 直接格式化时间字符串，不创建Date对象
-    const formatTimeString = (hours: number, minutes: number) => {
-      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  // 格式化休息时间信息 - 只在formData变化时更新
+  const breakTimeFormatInfo = useMemo(() => {
+    // 格式化单个休息时间段
+    const formatBreakTime = (startTime: string, endTime: string, duration: number) => {
+      const durationStr = duration >= 60 
+        ? `${Math.floor(duration / 60)}小时${duration % 60 > 0 ? `${duration % 60}分钟` : ''}`
+        : `${duration}分钟`;
+      
+      return `${startTime} - ${endTime} (${durationStr})`;
     };
     
-    const restStartTimeStr = formatTimeString(restStartHours, restStartMinutes);
-    const restEndTimeStr = formatTimeString(restEndHours, restEndMinutes);
+    // 对所有休息时间进行格式化
+    const breakTimeItems = formData.breakTimes.map(breakTime => {
+      const duration = calculateBreakDuration(breakTime.startTime, breakTime.endTime);
+      return formatBreakTime(breakTime.startTime, breakTime.endTime, duration);
+    });
     
-    const restTimeRangeStr = `${restStartTimeStr} - ${restEndTimeStr}`;
+    // 计算总休息时间并格式化
+    const totalRestMinutes = formData.restTime;
+    const totalRestStr = totalRestMinutes >= 60 
+      ? `${Math.floor(totalRestMinutes / 60)}小时${totalRestMinutes % 60 > 0 ? `${totalRestMinutes % 60}分钟` : ''}`
+      : `${totalRestMinutes}分钟`;
     
-    return { restTimeRangeStr };
-  }, [restTimeObjects]);
-  
-  // 计算并格式化休息时长 - 只在restTime变化时重算
-  const restDurationInfo = useMemo(() => {
-    const formatRestDuration = () => {
-      const durationMinutes = formData.restTime;
-      if (durationMinutes >= 60) {
-        const hours = Math.floor(durationMinutes / 60);
-        const minutes = durationMinutes % 60;
-        return minutes > 0 ? `${hours}小时${minutes}分钟` : `${hours}小时`;
-      }
-      return `${durationMinutes}分钟`;
+    return {
+      breakTimeItems,
+      totalRestStr
     };
-    
-    return { restDurationStr: formatRestDuration() };
-  }, [formData.restTime]);
+  }, [formData.breakTimes, formData.restTime]);
   
-  // 检查当前是否在休息时间内 - 使用useCallback以便在其他计算中引用
-  function isInRestTime(): boolean {
-    const currentHours = currentTime.getHours();
-    const currentMinutes = currentTime.getMinutes();
-    const currentTotalMinutes = currentHours * 60 + currentMinutes;
-    
-    const { restStartHours, restStartMinutes, restEndHours, restEndMinutes } = restTimeObjects;
-    const restStartTotalMinutes = restStartHours * 60 + restStartMinutes;
-    const restEndTotalMinutes = restEndHours * 60 + restEndMinutes;
-    
-    // 处理休息时间跨天的情况
-    if (restEndTotalMinutes < restStartTotalMinutes) {
-      // 跨天情况：检查是否在今天的休息开始后或明天的休息结束前
-      return currentTotalMinutes >= restStartTotalMinutes || 
-             currentTotalMinutes <= restEndTotalMinutes;
-    }
-    
-    // 普通情况：直接判断是否在休息时间范围内
-    return currentTotalMinutes >= restStartTotalMinutes && 
-           currentTotalMinutes <= restEndTotalMinutes;
-  }
-  
-  // 计算当前是否在休息时间
+  // 检查当前是否在休息时间内
   const currentlyInRest = useMemo(() => {
-    return isInRestTime();
-  }, [currentTime]);
+    return isInAnyBreakTime(currentTime, formData.breakTimes);
+  }, [currentTime, formData.breakTimes]);
   
   // 渲染组件
   return (
@@ -385,9 +351,31 @@ const SalaryDisplay = ({ formData, salaryStats }: SalaryDisplayProps) => {
                 </Col>
                 <Col xs={24} sm={12}>
                   <div className="time-info-item">
-                    <Tag icon={<CoffeeOutlined />} color="orange">休息时间</Tag>
+                    <Tag icon={<ClockCircleOutlined />} color="green">结束工作时间</Tag>
+                    <div>{formattedEndDateTime}</div>
+                  </div>
+                </Col>
+                
+                <Col xs={24}>
+                  <div className="time-info-item">
+                    <Tag icon={<CoffeeOutlined />} color="orange">休息时间段</Tag>
                     <Tooltip title="休息期间不计入工资统计">
-                      <div>{restTimeFormatInfo.restTimeRangeStr} ({restDurationInfo.restDurationStr})</div>
+                      <div>
+                        <List
+                          size="small"
+                          dataSource={breakTimeFormatInfo.breakTimeItems}
+                          renderItem={(item) => (
+                            <List.Item style={{ padding: '4px 0' }}>
+                              {item}
+                            </List.Item>
+                          )}
+                          footer={
+                            <div style={{ fontWeight: 'bold' }}>
+                              总休息时间: {breakTimeFormatInfo.totalRestStr}
+                            </div>
+                          }
+                        />
+                      </div>
                     </Tooltip>
                   </div>
                 </Col>
