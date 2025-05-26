@@ -30,28 +30,5 @@ export default defineConfig({
       "@": resolve(__dirname, "src"),
     },
     extensions: [".mjs", ".js", ".ts", ".jsx", ".tsx", ".json"],
-    dedupe: ["react"],
-  },
-  build: {
-    commonjsOptions: {
-      include: [/node_modules/],
-    },
-    rollupOptions: {
-      input: {
-        main: "index.html",
-      },
-      output: {
-        manualChunks: (id) => {
-          if (id.includes("node_modules")) {
-            if (id.includes("react")) {
-              return "vendor-react";
-            }
-            return "vendor";
-          }
-        },
-      },
-    },
-    minify: "esbuild",
-    target: "esnext",
   },
 });

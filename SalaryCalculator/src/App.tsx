@@ -1,5 +1,5 @@
 import { ConfigProvider } from 'antd';
-import zhCN from 'antd/lib/locale/zh_CN';
+import zhCN from 'antd/locale/zh_CN';
 import SalaryCalculator from '@/components/SalaryCalculator';
 import './App.css';
 

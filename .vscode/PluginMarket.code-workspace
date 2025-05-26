@@ -6,8 +6,8 @@
     {
       "path": "../PictureEditor"
     },
-	{ "path": "../SalaryCalculator"
-}
+    { "path": "../SalaryCalculator" },
+    { "path": "../Gobang" }
   ],
   "settings": {
     "workbench.activityBar.orientation": "vertical"
